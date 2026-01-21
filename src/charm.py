@@ -52,8 +52,6 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             self._remove_node_exporter()
             self._remove_opentelemetry_collector()
             return
-        framework.observe(self.on.install, self._on_install)
-        framework.observe(self.on.start, self._on_start)
 
         self._scraping = MetricsEndpointProvider(
             self,
@@ -72,19 +70,6 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         calls to snapd until they're actually needed.
         """
         return snap.SnapCache()[snap_name]
-
-    def _on_install(self, event: ops.InstallEvent):
-        """Install the workload on the machine."""
-        blackbox_exporter.install()
-
-    def _on_start(self, event: ops.StartEvent):
-        """Handle start event."""
-        self.unit.status = ops.MaintenanceStatus("starting workload")
-        blackbox_exporter.start()
-        version = blackbox_exporter.get_version()
-        if version is not None:
-            self.unit.set_workload_version(version)
-        self.unit.status = ops.ActiveStatus()
     
     def _install_snaps(self) -> None:
         manager = SingletonSnapManager(self.unit.name)
