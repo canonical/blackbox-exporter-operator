@@ -8,7 +8,7 @@ type: charm
 subordinate: true
 name: blackbox-exporter-operator
 title: Blackbox Exporter Machine Charm
-summary: Performs ICMP connectivity checks of its peers by defauly and supports blackbox probing with a multitude of protocols.
+summary: Performs ICMP connectivity checks of its peers by default and supports blackbox probing with a multitude of protocols.
 description: |
   Blackbox exporter is a Prometheus exporter that allows to perform blackbox
   probes using a multitude of protocols, including HTTP(s), DNS, TCP and ICMP.

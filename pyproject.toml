@@ -14,23 +14,20 @@ dependencies = [
     "cosl",
 ]
 
-[dependency-groups]
-# Dependencies of linting and static type checks
-lint = [
-    "ruff",
-    "codespell",
-    "pyright",
-]
-# Dependencies of unit tests
-unit = [
-    "coverage[toml]",
-    "ops[testing]",
-    "pytest",
-]
-# Dependencies of integration tests
-integration = [
-    "jubilant",
-    "pytest",
+[project.optional-dependencies]
+dev = [
+  # Linting
+  "ruff",
+  "codespell",
+  # Static
+  "pyright",
+  # Unit
+  "pytest",
+  "coverage[toml]",
+  # Integration
+  "pytest-operator",
+  "ops[testing]",
+  "jubilant",
 ]
 
 # Testing tools configuration

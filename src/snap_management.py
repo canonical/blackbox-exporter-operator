@@ -14,8 +14,9 @@ from charms.operator_libs_linux.v2.snap import JSONAble
 
 log = logging.getLogger(__name__)
 
+
 def get_system_arch() -> str:
-    """Returns the architecture of this machine, mapping some values to amd64 or arm64.
+    """Return the architecture of this machine, mapping some values to amd64 or arm64.
 
     If platform is x86_64 or amd64, it returns amd64.
     If platform is aarch64, arm64, armv8b, or armv8l, it returns arm64.
@@ -27,6 +28,7 @@ def get_system_arch() -> str:
         arch = "arm64"
     # else: keep arch as is
     return arch
+
 
 class SnapMap:
     """Maps snap revisions based on architecture and confinement mode.
@@ -82,6 +84,7 @@ class SnapServiceError(SnapError):
     This exception is raised when there's an error starting, stopping,
     or otherwise managing a snap's service.
     """
+
 
 def install_snap(
     snap_name: str,
