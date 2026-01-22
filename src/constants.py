@@ -3,3 +3,4 @@
 from typing import Final
 
 PROBES_RELATION_NAME: Final[str] = "probes"
+PEERS_RELATION_NAME: Final[str] = "peers"
