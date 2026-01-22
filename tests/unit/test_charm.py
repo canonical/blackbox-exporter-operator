@@ -1,4 +1,4 @@
-# Copyright 2026 sina.pahlavan@canonical.com
+# Copyright 2026 Canonical Ltd.
 # See LICENSE file for licensing details.
 #
 # To learn more about testing, see https://documentation.ubuntu.com/ops/latest/explanation/testing/

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 sina.pahlavan@canonical.com
+# Copyright 2026 Ltd.
 # See LICENSE file for licensing details.
 
 """Charm the application."""
