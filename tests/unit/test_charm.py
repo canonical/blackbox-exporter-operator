@@ -18,7 +18,6 @@ def test_start(monkeypatch: pytest.MonkeyPatch):
     """Test that the charm has the correct state after handling the start event."""
     # Arrange:
     ctx = testing.Context(BlackboxExporterOperatorCharm)
-    monkeypatch.setattr("charm.blackbox_exporter.get_version", mock_get_version)
     # Act:
     state_out = ctx.run(ctx.on.start(), testing.State())
     # Assert:
