@@ -6,19 +6,21 @@
 
 import json
 import logging
+from unittest.mock import patch, Mock
 
 from scenario import PeerRelation, State
-
 logger = logging.getLogger(__name__)
 
+mock_ports = [80, 443]
 
 def test_peer_relation_data(context):
     # GIVEN a BE with peers.
     peer_relation = PeerRelation(endpoint="peers", peers_data={1: {}})
     state = State(relations={peer_relation})
     # WHEN any event executes the reconciler.
-    with context(context.on.update_status(), state=state) as mgr:
+    with context(context.on.update_status(), state=state) as mgr, patch("charm.get_principal_unit_open_ports") as mock_ports:
         state_out = mgr.run()
+        mock_ports.return_value = mock_ports
 
         peer_relation = next((obj for obj in state_out.relations if obj.endpoint == "peers"), None)
         unit_networks_data = json.loads(
