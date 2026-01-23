@@ -1,0 +1,53 @@
+# Copyright 2026 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+# This file configures Charmcraft.
+# See https://juju.is/docs/sdk/charmcraft-config for guidance.
+
+type: charm
+subordinate: true
+name: blackbox-exporter-operator
+title: Blackbox Exporter Machine Charm
+summary: Performs ICMP connectivity checks of its peers by default and supports blackbox probing with a variety of protocols.
+description: |
+  Blackbox exporter is a Prometheus exporter that can execute blackbox
+  probes for a variety of protocols, including HTTP(s), DNS, TCP and ICMP.
+  This charm operates the Blackbox Exporter snap on machines such as LXD.
+
+links:
+  # TODO: update these two lines when we register on Charmhub
+  #documentation: https://discourse.charmhub.io/t/blackbox-exporter-k8s-docs-index/11728
+  #website: https://charmhub.io/blackbox-exporter-k8s
+  source: https://github.com/canonical/blackbox-exporter-operator
+  issues: https://github.com/canonical/blackbox-exporter-operator/issues
+
+platforms:
+  ubuntu@22.04:amd64:
+  ubuntu@22.04:arm64:
+  ubuntu@24.04:amd64:
+  ubuntu@24.04:arm64:
+
+parts:
+  charm:
+    plugin: uv
+    source: .
+    build-snaps:
+      - astral-uv
+
+requires:
+  juju-info:
+    description: |
+      `juju-info` provides basic compatibility with all charms.
+    interface: juju-info
+    scope: container
+
+provides:
+  probes:
+    interface: prometheus_scrape
+    optional: true
+    description: To be consumed by a scraping charm for the purpose of probing targets and scraping probe results as time-series data.
+
+peers:
+  peers:
+    interface: blackbox_exporter_replica
+
