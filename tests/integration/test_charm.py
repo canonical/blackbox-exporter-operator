@@ -18,10 +18,6 @@ def test_deploy(charm: pathlib.Path, juju: jubilant.Juju):
     juju.deploy(charm.resolve(), app="blackbox-exporter-operator")
     juju.wait(jubilant.all_active)
 
-
-# If you implement blackbox_exporter.get_version in the charm source,
-# remove the @pytest.mark.skip line to enable this test.
-# Alternatively, remove this test if you don't need it.
 @pytest.mark.skip(reason="blackbox_exporter.get_version is not implemented")
 def test_workload_version_is_set(charm: pathlib.Path, juju: jubilant.Juju):
     """Check that the correct version of the workload is running."""

@@ -3,8 +3,8 @@
 
 [project]
 name = "blackbox-exporter-operator"
-version = "0.0.1"
-requires-python = ">=3.10"
+version = "0.0"  # This field is not used
+requires-python = "~=3.10"
 
 # Dependencies of the charm code
 # You should include the dependencies of the code in src/. You should also include the
@@ -14,7 +14,7 @@ dependencies = [
     "cosl",
 ]
 
-[project.optional-dependencies]
+[project.dependency-groups]
 dev = [
   # Linting
   "ruff",
@@ -25,7 +25,6 @@ dev = [
   "pytest",
   "coverage[toml]",
   # Integration
-  "pytest-operator",
   "ops[testing]",
   "jubilant",
 ]
@@ -33,9 +32,15 @@ dev = [
 # Testing tools configuration
 [tool.coverage.run]
 branch = true
+# Include only source code
+include = ["src", "tests"]
+pythonVersion = "3.10"
+pythonPlatform = "All"
 
 [tool.coverage.report]
 show_missing = true
+# Omit tests from reports
+omit = ["tests/*"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -62,9 +67,6 @@ lint.ignore = [
 ]
 extend-exclude = ["__pycache__", "*.egg_info"]
 lint.per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
-
-[tool.ruff.lint.mccabe]
-max-complexity = 10
 
 [tool.codespell]
 skip = "build,lib,venv,icon.svg,.tox,.git,.mypy_cache,.ruff_cache,.coverage"
