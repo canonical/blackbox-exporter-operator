@@ -11,11 +11,12 @@ import socket
 import subprocess
 import sys
 from ipaddress import IPv4Interface
+from typing import cast
 
 import ops
 from charms.operator_libs_linux.v2 import snap
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
-from netifaces import AF_INET, ifaddresses, interfaces
+from netifaces import AF_INET, InterfaceType, ifaddresses, interfaces
 from ops.model import ActiveStatus, MaintenanceStatus
 
 from constants import PEERS_RELATION_NAME, PROBES_RELATION_NAME
@@ -60,8 +61,11 @@ def get_unit_networks():
         if iface == "lo":
             continue
 
-        addrs = ifaddresses(iface).get(AF_INET, [])
+        addrs = ifaddresses(iface).get(cast(InterfaceType, AF_INET), [])
+
         for addr in addrs:
+            addr = cast(dict[str, str], addr)
+
             ip = addr.get("addr")
             netmask = addr.get("netmask")
 
@@ -201,7 +205,11 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             "az": get_az() or "",
             "unit-ports": json.dumps(get_principal_unit_open_ports() or []),
         }
-        self.model.get_relation(PEERS_RELATION_NAME).data[self.unit].update(peer_relation_data)
+        relation = self.model.get_relation(PEERS_RELATION_NAME)
+        assert relation is not None
+
+        relation.data[self.unit].update(peer_relation_data)
+
         self.unit.status = ActiveStatus()
 
     def _generate_scrape_jobs(self):
