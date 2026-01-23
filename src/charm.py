@@ -20,7 +20,7 @@ from cosl.reconciler import all_events, observe_events
 from netifaces import AF_INET, InterfaceType, ifaddresses, interfaces
 from ops.model import ActiveStatus, MaintenanceStatus
 
-from constants import PROBES_RELATION_NAME, PEERS_RELATION_NAME, DEFAULT_PORT
+from constants import DEFAULT_PORT, PEERS_RELATION_NAME, PROBES_RELATION_NAME
 from singleton_snap import SingletonSnapManager
 from snap_management import (
     SnapMap,
