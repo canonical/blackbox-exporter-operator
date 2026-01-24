@@ -14,6 +14,7 @@ from ipaddress import IPv4Interface
 from typing import cast
 
 import ops
+from ops.jujucontext import JujuContext
 from charms.operator_libs_linux.v2 import snap
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from cosl.reconciler import all_events, observe_events
@@ -42,26 +43,11 @@ def event() -> str:
     return os.environ.get("JUJU_HOOK_NAME") or os.environ.get("JUJU_ACTION_NAME", "")
 
 
-def principal_unit():
-    """Return the principal unit of this unit, otherwise None."""
-    # Juju 2.2 and above provides JUJU_PRINCIPAL_UNIT
-    return os.environ.get("JUJU_PRINCIPAL_UNIT", None)
-
-
-def get_az():
-    """Return the Juju Availability Zones."""
-    az = os.getenv("JUJU_AVAILABILITY_ZONE") or "None"
-    return az
-
-
 def get_unit_networks():
     """Return all IP addresses of the machine hosting this unit across all interfaces."""
     networks = []
 
-    for iface in interfaces():
-        if iface == "lo":
-            continue
-
+    for iface in filter(lambda iface: iface not in {"lo"}, interfaces()):
         addrs = ifaddresses(iface).get(cast(InterfaceType, AF_INET), [])
 
         for addr in addrs:
@@ -111,7 +97,8 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
 
     def __init__(self, framework: ops.Framework):
         super().__init__(framework)
-        logger.info("Event is %s", event)
+        self._juju_ctx: JujuContext | None = None
+
         if event() in ("install", "upgrade"):
             self._install_snaps()
         elif event() == "remove":
@@ -119,6 +106,12 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             return
 
         observe_events(self, all_events, self._reconcile)
+
+    @property
+    def juju_ctx(self) -> JujuContext:
+        if self._juju_ctx is None:
+            self._juju_ctx = JujuContext.from_environ()
+        return self._juju_ctx
 
     def _reconcile(self):
         self._scraping = MetricsEndpointProvider(
@@ -201,10 +194,11 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             return
         self.unit.status = MaintenanceStatus("Updating peer relation data")
         peer_relation_data = {
-            "principal-unit": self.model.unit.name if self.model.unit else "",
+            "principal-unit": self.juju_ctx.principal_unit,
             "principal-hostname": socket.gethostname(),
             "unit-networks": json.dumps(get_unit_networks()),
-            "az": get_az() or "",
+            "az": self.juju_ctx.availability_zone,
+
             "unit-ports": json.dumps(get_principal_unit_open_ports() or []),
         }
         relation = self.model.get_relation(PEERS_RELATION_NAME)
