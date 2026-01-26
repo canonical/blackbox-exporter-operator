@@ -8,18 +8,15 @@ import json
 import logging
 import os
 import socket
-import subprocess
-import sys
-from ipaddress import IPv4Interface
-from typing import cast
+from typing import Tuple, TypedDict
 
 import ops
-from ops.jujucontext import JujuContext
 from charms.operator_libs_linux.v2 import snap
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from cosl.reconciler import all_events, observe_events
-from netifaces import AF_INET, InterfaceType, ifaddresses, interfaces
-from ops.model import ActiveStatus, MaintenanceStatus
+from ops import CollectStatusEvent, StoredState
+from ops.jujucontext import JujuContext
+from ops.model import ActiveStatus, MaintenanceStatus, StatusBase
 
 from constants import DEFAULT_PORT, PEERS_RELATION_NAME, PROBES_RELATION_NAME
 from singleton_snap import SingletonSnapManager
@@ -29,6 +26,7 @@ from snap_management import (
     SnapSpecError,
     install_snap,
 )
+from utils import get_unit_networks
 
 logger = logging.getLogger(__name__)
 
@@ -42,62 +40,40 @@ def event() -> str:
     """
     return os.environ.get("JUJU_HOOK_NAME") or os.environ.get("JUJU_ACTION_NAME", "")
 
+class CompositeStatus(TypedDict):
+    """Per-component status holder."""
 
-def get_unit_networks():
-    """Return all IP addresses of the machine hosting this unit across all interfaces."""
-    networks = []
+    # For the status of snap installation, start.
+    snap: Tuple[str, str]
 
-    for iface in filter(lambda iface: iface not in {"lo"}, interfaces()):
-        addrs = ifaddresses(iface).get(cast(InterfaceType, AF_INET), [])
-
-        for addr in addrs:
-            addr = cast(dict[str, str], addr)
-
-            ip = addr.get("addr")
-            netmask = addr.get("netmask")
-
-            if not ip:
-                continue
-
-            # If no netmask, assume /32
-            if netmask:
-                iface_ip = IPv4Interface(f"{ip}/{netmask}")
-            else:
-                iface_ip = IPv4Interface(f"{ip}/32")
-
-            networks.append(
-                {
-                    "iface": iface,
-                    "ip": str(iface_ip.ip),
-                    "net": str(iface_ip.network),
-                }
-            )
-
-    return networks
+    # For the status of relation data writes.
+    relation: Tuple[str, str]
 
 
-def get_principal_unit_open_ports():
-    """Return the open ports on the machine hosting this unit."""
-    cmd = "lsof -P -iTCP -sTCP:LISTEN".split()
-    result = subprocess.check_output(cmd)
-    result = result.decode(sys.stdout.encoding)
+def to_tuple(status: StatusBase) -> Tuple[str, str]:
+    """Convert a StatusBase to tuple, so it is marshallable into StoredState."""
+    return status.name, status.message
 
-    ports = []
-    for r in result.split("\n"):
-        for p in r.split():
-            if "*:" in p:
-                ports.append(p.split(":")[1])
-    ports = list(set(ports))
-
-    return ports
-
+def to_status(tpl: Tuple[str, str]) -> StatusBase:
+    """Convert a tuple to a StatusBase, so it could be used natively with ops."""
+    name, message = tpl
+    return StatusBase.from_name(name, message)
 
 class BlackboxExporterOperatorCharm(ops.CharmBase):
     """Charm the application."""
 
+    _stored = StoredState()
+
     def __init__(self, framework: ops.Framework):
         super().__init__(framework)
         self._juju_ctx: JujuContext | None = None
+
+        self._stored.set_default(
+            status=CompositeStatus(
+                snaps=to_tuple(ActiveStatus()),
+                relations=to_tuple(ActiveStatus()),
+            )
+        )
 
         if event() in ("install", "upgrade"):
             self._install_snaps()
@@ -105,13 +81,24 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             self._remove_blackbox_exporter()
             return
 
+        self.framework.observe(self.on.collect_unit_status, self._collect_unit_status)
         observe_events(self, all_events, self._reconcile)
 
     @property
     def juju_ctx(self) -> JujuContext:
+        """Juju execution context.
+
+        Provides access to a JujuContext derived from the current
+        environment, abstracting away direct access to Juju
+        environment variables.
+        """
         if self._juju_ctx is None:
             self._juju_ctx = JujuContext.from_environ()
         return self._juju_ctx
+
+    def _collect_unit_status(self, event: CollectStatusEvent):
+        for status in self._stored.status.values():
+            event.add_status(to_status(status))
 
     def _reconcile(self):
         self._scraping = MetricsEndpointProvider(
@@ -127,8 +114,9 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             ],
         )
 
-        self._update_peer_relation_data()
-        self.unit.status = ActiveStatus()
+        if event() == "peers-relation-joined":
+            self._update_peer_relation_data()
+
 
     def snap(self, snap_name: str) -> snap.Snap:
         """Return the snap object for the given snap.
@@ -147,25 +135,28 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             revisions = manager.get_revisions(snap_name)
             if snap_revision >= (max(revisions) if revisions else 0):
                 # Install the snap
-                self.unit.status = MaintenanceStatus(f"Installing {snap_name} snap")
+                self._stored.status["snap"] = to_tuple(
+                    MaintenanceStatus(f"Installing {snap_name} snap")
+                    )
                 install_snap(snap_name)
                 # Start the snap
-                self.unit.status = MaintenanceStatus(f"Starting {snap_name} snap")
+                self._stored.status["snap"] = to_tuple(
+                    MaintenanceStatus(f"Starting {snap_name} snap")
+                    )
                 try:
                     self.snap(snap_name).start(enable=True)
+                    self._stored.status["snap"] = to_tuple(ActiveStatus())
                 except snap.SnapError as e:
                     raise SnapServiceError(f"Failed to start {snap_name}") from e
 
     def _remove_blackbox_exporter(self):
         """Coordinate blackbox-exporter snap and config file removal."""
-        self.unit.status = MaintenanceStatus("sdgsgsdsdg")
+        self.unit.status = MaintenanceStatus("Removing Blackbox Exporter")
         manager = SingletonSnapManager(self.unit.name)
         snap_name = "prometheus-blackbox-exporter"
         snap_revision = SnapMap.get_revision(snap_name)
         manager.unregister(snap_name, snap_revision)
-        logger.info(
-            "Is manager in use by other units? %s", manager.is_used_by_other_units(snap_name)
-        )
+
         if manager.is_used_by_other_units(snap_name):
             try:
                 self.snap(snap_name).restart()
@@ -194,19 +185,17 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             return
         self.unit.status = MaintenanceStatus("Updating peer relation data")
         peer_relation_data = {
-            "principal-unit": self.juju_ctx.principal_unit,
+            "principal-unit": self.juju_ctx.principal_unit or "",
             "principal-hostname": socket.gethostname(),
-            "unit-networks": json.dumps(get_unit_networks()),
-            "az": self.juju_ctx.availability_zone,
-
-            "unit-ports": json.dumps(get_principal_unit_open_ports() or []),
+            "unit-networks": json.dumps([n.to_dict() for n in get_unit_networks()]),
+            "az": self.juju_ctx.availability_zone or "",
         }
         relation = self.model.get_relation(PEERS_RELATION_NAME)
         assert relation is not None
 
         relation.data[self.unit].update(peer_relation_data)
 
-        self.unit.status = ActiveStatus()
+        self._stored.status["relations"] = to_tuple(ActiveStatus())
 
     def _generate_scrape_jobs(self):
         """Scrape jobs from peer relation data will be generated by this method."""
