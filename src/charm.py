@@ -8,12 +8,12 @@ import logging
 import os
 
 import ops
+from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from charms.operator_libs_linux.v2 import snap
-from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from cosl.reconciler import all_events, observe_events
 from ops.model import ActiveStatus, MaintenanceStatus
 
-from constants import DEFAULT_PORT, PROBES_RELATION_NAME
+from constants import DEFAULT_PORT
 from singleton_snap import SingletonSnapManager
 from snap_management import (
     SnapMap,
@@ -46,21 +46,23 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             self._remove_blackbox_exporter()
             return
 
-        observe_events(self, all_events, self._reconcile)
-
-    def _reconcile(self):
-        self._scraping = MetricsEndpointProvider(
+        self.cos_agent_provider = COSAgentProvider(
             self,
-            relation_name=PROBES_RELATION_NAME,
+            relation_name="cos-agent",
             # TODO: this needs to be equal to the jobs specified by _generate_scrape_jobs
             # and the probes_file config option (to be added)
             # and the self metrics endpoint
-            jobs=self._self_metrics,
-            refresh_event=[
+            scrape_configs=self._self_metrics,
+            log_slots=["prometheus-blackbox-exporter:slot"],
+            refresh_events=[
                 self.on.config_changed,
                 self.on.update_status,
             ],
         )
+
+        observe_events(self, all_events, self._reconcile)
+
+    def _reconcile(self):
 
         self.unit.status = ActiveStatus()
 
