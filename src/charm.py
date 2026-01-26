@@ -47,7 +47,7 @@ class CompositeStatus(TypedDict):
     snap: Tuple[str, str]
 
     # For the status of relation data writes.
-    relation: Tuple[str, str]
+    relations: Tuple[str, str]
 
 
 def to_tuple(status: StatusBase) -> Tuple[str, str]:
@@ -70,7 +70,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
 
         self._stored.set_default(
             status=CompositeStatus(
-                snaps=to_tuple(ActiveStatus()),
+                snap=to_tuple(ActiveStatus()),
                 relations=to_tuple(ActiveStatus()),
             )
         )
