@@ -53,7 +53,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             # and the probes_file config option (to be added)
             # and the self metrics endpoint
             scrape_configs=self._self_metrics,
-            log_slots=["prometheus-blackbox-exporter:slot"],
+            #log_slots=["prometheus-blackbox-exporter:slot"],
             refresh_events=[
                 self.on.config_changed,
                 self.on.update_status,

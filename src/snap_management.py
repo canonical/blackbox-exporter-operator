@@ -43,10 +43,10 @@ class SnapMap:
     snap_maps = {
         "prometheus-blackbox-exporter": {
             # (confinement, arch): revision
-            ("strict", "amd64"): 27,  # 0.21.1
-            ("strict", "arm64"): 34,  # 0.21.1
-            ("strict", "s390x"): 29,  # 0.21.1
-            ("strict", "ppc64el"): 30,  # 0.21.1
+            ("strict", "amd64"): 35,  # 0.28.0
+            ("strict", "arm64"): 36,  # 0.28.0
+            ("strict", "ppc64el"): 37,  # 0.28.0
+            ("strict", "s390x"): 38, # 0.28.0
         },
     }
 
