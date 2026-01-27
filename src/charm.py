@@ -6,6 +6,7 @@
 
 import logging
 import os
+from typing import Any, Dict, List
 
 import ops
 from charms.grafana_agent.v0.cos_agent import COSAgentProvider
@@ -53,7 +54,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             # and the probes_file config option (to be added)
             # and the self metrics endpoint
             scrape_configs=self._self_metrics,
-            #log_slots=["prometheus-blackbox-exporter:slot"],
+            log_slots=["prometheus-blackbox-exporter:prometheus-blackbox-exporter-logs"],
             refresh_events=[
                 self.on.config_changed,
                 self.on.update_status,
@@ -127,7 +128,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         pass
 
     @property
-    def _self_metrics(self):
+    def _self_metrics(self) -> List[Dict[str, Any]]:
         """Return the self-monitoring scrape job.
 
         It is expected that the scraping of this BE's self workload metrics
@@ -139,9 +140,18 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         target = (
             f"{self._machine_ip}{':'+str(DEFAULT_PORT)}"
         )
+
+        # For self monitoring metrics, we'll rely on
+        # labels coming from juju topology
         job = {
+            "job_name": "be-self-monitoring",
             "metrics_path": "/metrics",
-            "static_configs": [{"targets": [target]}],
+            "static_configs": [
+                {
+                    "targets": [target]
+                }
+            ],
+            "scrape_timeout": "10s"
         }
 
         return [job]
