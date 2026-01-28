@@ -12,6 +12,7 @@ requires-python = "~=3.10"
 dependencies = [
     "ops>=3,<4",
     "cosl",
+    "netifaces2",
 ]
 
 [project.dependency-groups]
