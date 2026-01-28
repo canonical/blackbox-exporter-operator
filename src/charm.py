@@ -17,7 +17,13 @@ from ops import CollectStatusEvent, StoredState
 from ops.jujucontext import JujuContext
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
 
-from constants import DEFAULT_PORT, PEERS_RELATION_NAME
+from constants import (
+    COS_AGENT_RELATION_NAME,
+    DEFAULT_PORT,
+    LOG_SLOT_NAME,
+    PEERS_RELATION_NAME,
+    SNAP_NAME,
+)
 from singleton_snap import SingletonSnapManager
 from snap_management import (
     SnapMap,
@@ -80,17 +86,18 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
 
         self.cos_agent_provider = COSAgentProvider(
             self,
-            relation_name="cos-agent",
+            relation_name=COS_AGENT_RELATION_NAME,
             # TODO: this needs to be equal to the jobs specified by _generate_scrape_jobs
             # and the probes_file config option (to be added)
             # and the self metrics endpoint
             scrape_configs=self._self_metrics,
-            log_slots=["prometheus-blackbox-exporter:prometheus-blackbox-exporter-logs"],
+            log_slots=[f"{SNAP_NAME}:{LOG_SLOT_NAME}"],
             refresh_events=[
                 self.on.config_changed,
                 self.on.update_status,
             ],
         )
+
         self.framework.observe(self.on.collect_unit_status, self._collect_unit_status)
         observe_events(self, all_events, self._reconcile)
 
@@ -200,7 +207,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         Hence, the target can be <network-bind-address>:9115/metrics.
         """
         target = (
-            f"{self._machine_ip}{':'+str(DEFAULT_PORT)}"
+            f"{self._machine_ip}:{DEFAULT_PORT}"
         )
 
         # For self monitoring metrics, we'll rely on
