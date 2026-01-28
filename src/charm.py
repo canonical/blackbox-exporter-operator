@@ -6,7 +6,7 @@
 
 import json
 import logging
-import os
+import socket
 from typing import Any, Dict, List, Tuple, TypedDict
 
 import ops
@@ -18,7 +18,6 @@ from ops.jujucontext import JujuContext
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
 
 from constants import DEFAULT_PORT, PEERS_RELATION_NAME
-
 from singleton_snap import SingletonSnapManager
 from snap_management import (
     SnapMap,
@@ -98,9 +97,6 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
     def _collect_unit_status(self, event: CollectStatusEvent):
         for status in self._stored.status.values():
             event.add_status(to_status(status))
-
-    def _reconcile(self):
-        self._scraping = MetricsEndpointProvider(
 
     def _reconcile(self):
         if event() == "peers-relation-joined":
