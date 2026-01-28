@@ -54,11 +54,11 @@ def test_scale_down_on_the_machine(juju: jubilant.Juju):
     # we need to make sure that the snap was not uninstalled
     # by the unit that was removed.
     # This is because we still have one unit on the machine which needs the snap.
-    snap_list = juju.ssh(f"{APP_NAME}/leader", "sudo snap list")
+    snap_list = juju.ssh("0", "sudo snap list")
     assert "prometheus-blackbox-exporter" in snap_list
 
     # We'll remove the remaining unit and ensure that the snap is also removed from the machine.
     juju.remove_application(APP_NAME)
     juju.wait(jubilant.all_active)
-    snap_list = juju.ssh(f"{APP_NAME}/leader", "sudo snap list")
+    snap_list = juju.ssh("0", "sudo snap list")
     assert "prometheus-blackbox-exporter" not in snap_list
