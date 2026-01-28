@@ -42,10 +42,15 @@ requires:
     scope: container
 
 provides:
-  probes:
-    interface: prometheus_scrape
+  cos-agent:
+    description: |
+      `cos-agent` is a dedicated relation for the Grafana agent
+      and Opentelemetry Collector machine charms.
+      It alows this charm to set up custom scrape jobs, logs, etc to be
+      scraped by a `cos-agent`-requiring charm.
+    interface: cos_agent
+    scope: container
     optional: true
-    description: To be consumed by a scraping charm for the purpose of probing targets and scraping probe results as time-series data.
 
 peers:
   peers:

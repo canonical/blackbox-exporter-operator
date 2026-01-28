@@ -7,17 +7,23 @@
 import json
 import logging
 import socket
-from typing import Tuple, TypedDict
+from typing import Any, Dict, List, Tuple, TypedDict
 
 import ops
+from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from charms.operator_libs_linux.v2 import snap
-from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from cosl.reconciler import all_events, observe_events
 from ops import CollectStatusEvent, StoredState
 from ops.jujucontext import JujuContext
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
 
-from constants import DEFAULT_PORT, PEERS_RELATION_NAME, PROBES_RELATION_NAME
+from constants import (
+    COS_AGENT_RELATION_NAME,
+    DEFAULT_PORT,
+    LOG_SLOT_NAME,
+    PEERS_RELATION_NAME,
+    SNAP_NAME,
+)
 from singleton_snap import SingletonSnapManager
 from snap_management import (
     SnapMap,
@@ -78,6 +84,20 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             self._remove_blackbox_exporter()
             return
 
+        self.cos_agent_provider = COSAgentProvider(
+            self,
+            relation_name=COS_AGENT_RELATION_NAME,
+            # TODO: this needs to be equal to the jobs specified by _generate_scrape_jobs
+            # and the probes_file config option (to be added)
+            # and the self metrics endpoint
+            scrape_configs=self._self_metrics,
+            log_slots=[f"{SNAP_NAME}:{LOG_SLOT_NAME}"],
+            refresh_events=[
+                self.on.config_changed,
+                self.on.update_status,
+            ],
+        )
+
         self.framework.observe(self.on.collect_unit_status, self._collect_unit_status)
         observe_events(self, all_events, self._reconcile)
 
@@ -86,22 +106,8 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             event.add_status(to_status(status))
 
     def _reconcile(self):
-        self._scraping = MetricsEndpointProvider(
-            self,
-            relation_name=PROBES_RELATION_NAME,
-            # TODO: this needs to be equal to the jobs specified by _generate_scrape_jobs
-            # and the probes_file config option (to be added)
-            # and the self metrics endpoint
-            jobs=self._self_metrics,
-            refresh_event=[
-                self.on.config_changed,
-                self.on.update_status,
-            ],
-        )
-
         if event() == "peers-relation-joined":
             self._update_peer_relation_data()
-
 
     def snap(self, snap_name: str) -> snap.Snap:
         """Return the snap object for the given snap.
@@ -191,7 +197,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         pass
 
     @property
-    def _self_metrics(self):
+    def _self_metrics(self) -> List[Dict[str, Any]]:
         """Return the self-monitoring scrape job.
 
         It is expected that the scraping of this BE's self workload metrics
@@ -201,11 +207,20 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         Hence, the target can be <network-bind-address>:9115/metrics.
         """
         target = (
-            f"{self._machine_ip}{':'+str(DEFAULT_PORT)}"
+            f"{self._machine_ip}:{DEFAULT_PORT}"
         )
+
+        # For self monitoring metrics, we'll rely on
+        # labels coming from juju topology
         job = {
+            "job_name": "be-self-monitoring",
             "metrics_path": "/metrics",
-            "static_configs": [{"targets": [target]}],
+            "static_configs": [
+                {
+                    "targets": [target]
+                }
+            ],
+            "scrape_timeout": "10s"
         }
 
         return [job]
