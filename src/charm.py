@@ -2,7 +2,7 @@
 # Copyright 2026 Ltd.
 # See LICENSE file for licensing details.
 
-"""Charm the application."""
+"""Charm the Blackbox Exporter."""
 
 import json
 import logging
@@ -34,7 +34,7 @@ from snap_management import (
     SnapSpecError,
     install_snap,
 )
-from utils import get_unit_networks, is_snap_active
+from utils import file_contents, get_unit_networks, is_snap_active
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,7 @@ def to_status(tpl: Tuple[str, str]) -> StatusBase:
     name, message = tpl
     return StatusBase.from_name(name, message)
 
+
 class BlackboxExporterOperatorCharm(ops.CharmBase):
     """Charm the application."""
 
@@ -91,10 +92,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             config_status_success = self._push_config()
             if config_status_success:
                 self._install_snaps()
-        elif event() == "config-changed":
-            config_status_success = self._push_config()
-            if config_status_success:
-                self._restart_snap(SNAP_NAME)
+
         elif event() == "remove":
             self._remove_blackbox_exporter()
             return
@@ -122,16 +120,14 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             event.add_status(to_status(status))
 
         # Pull status
-        # We put pull status after push status because if the config is invalid
-        # before collect_unit_status, the charm will set Blocked with a clear
-        # message that the config is invalid.
-        # If there are multiple statuses with the same priority, the first one is
-        # surface. So we add pushes status BEFORE pull statuses.
-        # https://github.com/canonical/operator/blob/51cdf22c98a01435d3b4cabafabec4cd097a5ae8/ops/charm.py#L1279
         if not is_snap_active(SNAP_NAME):
             event.add_status(BlockedStatus(f"Snap {SNAP_NAME} is inactive; see debug-log"))
 
     def _reconcile(self):
+        config_status_success = self._push_config()
+        if config_status_success:
+            self._restart_snap(SNAP_NAME)
+
         if event() == "peers-relation-joined":
             self._update_peer_relation_data()
 
@@ -144,12 +140,16 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         return snap.SnapCache()[snap_name]
 
     def _push_config(self) -> bool:
-        """Validate provided config and overwrite default snap config.
+        """Validate provided config and overwrite current snap config.
 
-        Return True if the config is valid.
-        Return False otherwise.
+        Return True if the config is overwritten.
+        Return False otherwise e.g. when the new config is invalid.
         """
         config = cast(str, self.model.config.get("config_file"))
+
+        # If config hasn't changed, return False as no overwriting will happen.
+        if file_contents(SNAP_CONFIG_PATH) == config:
+            return False
 
         # If the config_file is empty, the default config provided by the snap will be used.
         if not config:

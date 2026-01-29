@@ -5,6 +5,7 @@ This utils module will hold ops-independent logic to be used by charm code.
 import subprocess
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
+from pathlib import Path
 from typing import cast
 
 from netifaces import AF_INET, InterfaceType, ifaddresses, interfaces
@@ -93,3 +94,9 @@ def is_snap_active(snap_name: str) -> bool:
         return False
     except subprocess.CalledProcessError:
         return False
+
+def file_contents(path: Path) -> str | None:
+    """Return the content of a file at path `path`."""
+    if not path.exists():
+        return None
+    return path.read_text()
