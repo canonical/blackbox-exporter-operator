@@ -56,3 +56,32 @@ peers:
   peers:
     interface: blackbox_exporter_replica
 
+config:
+  options:
+    config_file:
+      description: |
+        Supply a configuration file for Blackbox Exporter in which modules and their parameters are specified.
+        The provided config file must, at a minimum, be valid YAML and contains a modules section.
+        If this value is set empty, the default configuration set by the snap will be used.
+        Automatic connectivity checks require the ICMP module. 
+        If you need automatic connectivity checks, do NOT remove the ICMP module. 
+        If your ICMP checks require DNS resolution for a target e.g. charmhub.io,
+        ensure the parameter `ip_protocol_fallback` is set to `true`.
+        Refer to https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md for
+        more information.
+      type: string
+      default: |
+        modules:
+          http_2xx:
+            prober: http
+            timeout: 10s
+          tcp_connect:
+            prober: tcp
+            timeout: 10s
+          icmp:
+            prober: icmp
+            timeout: 10s
+            icmp:
+              preferred_ip_protocol: "ip4"
+              ip_protocol_fallback: true
+

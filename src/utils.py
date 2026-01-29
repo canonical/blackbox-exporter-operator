@@ -2,6 +2,7 @@
 
 This utils module will hold ops-independent logic to be used by charm code.
 """
+import subprocess
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
 from typing import cast
@@ -70,3 +71,25 @@ def get_unit_networks() -> list[Network]:
             )
 
     return networks
+
+def is_snap_active(snap_name: str) -> bool:
+    """Return True if the snap is installed and in the 'active' state."""
+    try:
+        # snap services returns the status of the service
+        result = subprocess.run(
+            ["snap", "services", snap_name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # Output example:
+        # Service                 Startup  Current  Notes
+        # prometheus-blackbox-exporter.enable  enabled  active   -
+        # We check for 'active' in the Current column
+        for line in result.stdout.splitlines():
+            if snap_name in line:
+                if "active" in line.split():
+                    return True
+        return False
+    except subprocess.CalledProcessError:
+        return False

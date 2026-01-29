@@ -7,9 +7,11 @@
 import json
 import logging
 import socket
-from typing import Any, Dict, List, Tuple, TypedDict
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, TypedDict, cast
 
 import ops
+import yaml
 from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from charms.operator_libs_linux.v2 import snap
 from cosl.reconciler import all_events, observe_events
@@ -22,6 +24,7 @@ from constants import (
     DEFAULT_PORT,
     LOG_SLOT_NAME,
     PEERS_RELATION_NAME,
+    SNAP_CONFIG_LOCATION,
     SNAP_NAME,
 )
 from singleton_snap import SingletonSnapManager
@@ -31,9 +34,11 @@ from snap_management import (
     SnapSpecError,
     install_snap,
 )
-from utils import get_unit_networks
+from utils import get_unit_networks, is_snap_active
 
 logger = logging.getLogger(__name__)
+
+SNAP_CONFIG_PATH = Path(SNAP_CONFIG_LOCATION)
 
 def juju_context(arg: str):
     """Return Juju env variables."""
@@ -53,6 +58,9 @@ class CompositeStatus(TypedDict):
 
     # For the status of snap installation, start.
     snap: Tuple[str, str]
+
+    # For the validation of config.
+    config: Tuple[str, str]
 
 
 def to_tuple(status: StatusBase) -> Tuple[str, str]:
@@ -75,11 +83,18 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         self._stored.set_default(
             status=CompositeStatus(
                 snap=to_tuple(ActiveStatus()),
+                config=to_tuple(ActiveStatus())
             )
         )
 
         if event() in ("install", "upgrade"):
-            self._install_snaps()
+            config_status_success = self._push_config()
+            if config_status_success:
+                self._install_snaps()
+        elif event() == "config-changed":
+            config_status_success = self._push_config()
+            if config_status_success:
+                self._restart_snap(SNAP_NAME)
         elif event() == "remove":
             self._remove_blackbox_exporter()
             return
@@ -102,8 +117,19 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         observe_events(self, all_events, self._reconcile)
 
     def _collect_unit_status(self, event: CollectStatusEvent):
+        # Push status
         for status in self._stored.status.values():
             event.add_status(to_status(status))
+
+        # Pull status
+        # We put pull status after push status because if the config is invalid
+        # before collect_unit_status, the charm will set Blocked with a clear
+        # message that the config is invalid.
+        # If there are multiple statuses with the same priority, the first one is
+        # surface. So we add pushes status BEFORE pull statuses.
+        # https://github.com/canonical/operator/blob/51cdf22c98a01435d3b4cabafabec4cd097a5ae8/ops/charm.py#L1279
+        if not is_snap_active(SNAP_NAME):
+            event.add_status(BlockedStatus(f"Snap {SNAP_NAME} is inactive; see debug-log"))
 
     def _reconcile(self):
         if event() == "peers-relation-joined":
@@ -117,31 +143,88 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         """
         return snap.SnapCache()[snap_name]
 
+    def _push_config(self) -> bool:
+        """Validate provided config and overwrite default snap config.
+
+        Return True if the config is valid.
+        Return False otherwise.
+        """
+        config = cast(str, self.model.config.get("config_file"))
+
+        # If the config_file is empty, the default config provided by the snap will be used.
+        if not config:
+            return True
+
+        # We do a basic config validation of the yaml content
+        try:
+            provided_config = yaml.safe_load(config)
+
+        # Only catching yaml.YamlError or yaml.scanner.ScannerError
+        # may not be very robust. Let's assume the generic Exception is
+        # due to invalid YAML.
+        except Exception as e:
+            logger.error("Failed to load the configuration; invalid YAML: %s %s", config, str(e))
+            self._stored.status["config"] = to_tuple(
+                BlockedStatus("Config file is invalid; see debug-log")
+            )
+            return False
+
+        # Now we validate that it is a dict with a 'modules' section
+        if not isinstance(provided_config, dict) or "modules" not in provided_config:
+            logger.error(
+                "Config is valid YAML but missing top-level `modules` section."
+            )
+            self._stored.status["config"] = to_tuple(
+                BlockedStatus("Config file is invalid; see debug-log")
+            )
+            return False
+
+        # If the file is valid YAML, then we overwrite the default snap config.
+        # If we get to this point in the code, the config is guaranteed to at least
+        # be valid YAML.
+        SNAP_CONFIG_PATH.write_text(config)
+        logger.info(f"Overwrote the config for the snap at {SNAP_CONFIG_LOCATION}")
+        self._stored.status["config"] = to_tuple(
+                    ActiveStatus()
+                    )
+        return True
+
     def _install_snaps(self) -> None:
         manager = SingletonSnapManager(self.unit.name)
 
         for snap_name in SnapMap.snaps():
+
             snap_revision = SnapMap.get_revision(snap_name)
             manager.register(snap_name, snap_revision)
             revisions = manager.get_revisions(snap_name)
             if snap_revision >= (max(revisions) if revisions else 0):
-                # Install the snap
+                logger.info(f"Installing snap {snap_name}")
+
                 self._stored.status["snap"] = to_tuple(
-                    MaintenanceStatus(f"Installing {snap_name} snap")
+                    MaintenanceStatus(f"Installing snap {snap_name}")
                     )
                 install_snap(snap_name)
-                # Start the snap
+
                 self._stored.status["snap"] = to_tuple(
-                    MaintenanceStatus(f"Starting {snap_name} snap")
+                    MaintenanceStatus(f"Starting snap {snap_name}")
                     )
                 try:
+                    logger.info(f"Starting {snap_name} snap")
                     self.snap(snap_name).start(enable=True)
                     self._stored.status["snap"] = to_tuple(ActiveStatus())
                 except snap.SnapError as e:
                     self._stored.status["snap"] = to_tuple(
                         BlockedStatus("Unable to install the snap; see debug-log")
                         )
+                    logger.warn(f"Failed to start snap {snap_name}")
                     raise SnapServiceError(f"Failed to start {snap_name}") from e
+
+    def _restart_snap(self, snap_name: str) -> None:
+        try:
+            logger.info(f"Restarting snap {snap_name}")
+            self.snap(snap_name).restart()
+        except snap.SnapError as e:
+            logger.warning(f"Failed to restart prometheus-blackbox-exporter snap: {e}")
 
     def _remove_blackbox_exporter(self):
         """Coordinate blackbox-exporter snap and config file removal."""
@@ -149,18 +232,14 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             MaintenanceStatus("Removing Blackbox Exporter")
         )
         manager = SingletonSnapManager(self.unit.name)
-        snap_name = "prometheus-blackbox-exporter"
-        snap_revision = SnapMap.get_revision(snap_name)
-        manager.unregister(snap_name, snap_revision)
+        snap_revision = SnapMap.get_revision(SNAP_NAME)
+        manager.unregister(SNAP_NAME, snap_revision)
 
-        if manager.is_used_by_other_units(snap_name):
-            try:
-                self.snap(snap_name).restart()
-            except snap.SnapError as e:
-                logger.warning(f"Failed to restart prometheus-blackbox-exporter snap: {e}")
+        if manager.is_used_by_other_units(SNAP_NAME):
+            self._restart_snap(SNAP_NAME)
         else:
             try:
-                self._remove_snap(snap_name)
+                self._remove_snap(SNAP_NAME)
                 logger.info("Removed the prometheus-blackbox-exporter snap")
             except Exception as e:
                 logger.warning(f"Unable to remove the prometheus-blackbox-exporter snap: {e}")
