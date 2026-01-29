@@ -2,14 +2,21 @@
 
 This utils module will hold ops-independent logic to be used by charm code.
 """
+import logging
 import subprocess
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
 from pathlib import Path
-from typing import cast
+from typing import Any, Dict, cast
 
 from netifaces import AF_INET, InterfaceType, ifaddresses, interfaces
+from pydantic import BaseModel
 
+logger = logging.getLogger(__name__)
+
+class Config(BaseModel):
+    """BaseModel for a config file."""
+    modules: Dict[str, Any]
 
 @dataclass(frozen=True)
 class Network:
@@ -91,8 +98,10 @@ def is_snap_active(snap_name: str) -> bool:
             if snap_name in line:
                 if "active" in line.split():
                     return True
+        logger.info("Snap {snap_name} is not active")
         return False
     except subprocess.CalledProcessError:
+        logger.info("Unable to determine the activeness status of snap {snap_name}")
         return False
 
 def file_contents(path: Path) -> str | None:

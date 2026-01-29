@@ -7,8 +7,7 @@
 import json
 import logging
 import socket
-from pathlib import Path
-from typing import Any, Dict, List, Tuple, TypedDict, cast
+from typing import Any, Dict, List, TypedDict, cast
 
 import ops
 import yaml
@@ -18,13 +17,14 @@ from cosl.reconciler import all_events, observe_events
 from ops import CollectStatusEvent, StoredState
 from ops.jujucontext import JujuContext
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
+from pydantic import ValidationError
 
 from constants import (
     COS_AGENT_RELATION_NAME,
     DEFAULT_PORT,
     LOG_SLOT_NAME,
     PEERS_RELATION_NAME,
-    SNAP_CONFIG_LOCATION,
+    SNAP_CONFIG_PATH,
     SNAP_NAME,
 )
 from singleton_snap import SingletonSnapManager
@@ -34,11 +34,9 @@ from snap_management import (
     SnapSpecError,
     install_snap,
 )
-from utils import file_contents, get_unit_networks, is_snap_active
+from utils import Config, file_contents, get_unit_networks, is_snap_active
 
 logger = logging.getLogger(__name__)
-
-SNAP_CONFIG_PATH = Path(SNAP_CONFIG_LOCATION)
 
 def juju_context(arg: str):
     """Return Juju env variables."""
@@ -57,17 +55,17 @@ class CompositeStatus(TypedDict):
     """Per-component status holder."""
 
     # For the status of snap installation, start.
-    snap: Tuple[str, str]
+    snap: tuple[str, str]
 
     # For the validation of config.
-    config: Tuple[str, str]
+    config: tuple[str, str]
 
 
-def to_tuple(status: StatusBase) -> Tuple[str, str]:
+def to_tuple(status: StatusBase) -> tuple[str, str]:
     """Convert a StatusBase to tuple, so it is marshallable into StoredState."""
     return status.name, status.message
 
-def to_status(tpl: Tuple[str, str]) -> StatusBase:
+def to_status(tpl: tuple[str, str]) -> StatusBase:
     """Convert a tuple to a StatusBase, so it could be used natively with ops."""
     name, message = tpl
     return StatusBase.from_name(name, message)
@@ -89,9 +87,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         )
 
         if event() in ("install", "upgrade"):
-            config_status_success = self._push_config()
-            if config_status_success:
-                self._install_snaps()
+            self._install_snaps()
 
         elif event() == "remove":
             self._remove_blackbox_exporter()
@@ -124,8 +120,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             event.add_status(BlockedStatus(f"Snap {SNAP_NAME} is inactive; see debug-log"))
 
     def _reconcile(self):
-        config_status_success = self._push_config()
-        if config_status_success:
+        if self._push_config():
             self._restart_snap(SNAP_NAME)
 
         if event() == "peers-relation-joined":
@@ -169,11 +164,11 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             )
             return False
 
-        # Now we validate that it is a dict with a 'modules' section
-        if not isinstance(provided_config, dict) or "modules" not in provided_config:
-            logger.error(
-                "Config is valid YAML but missing top-level `modules` section."
-            )
+        # Now we validate the config with the Config BaseModel.
+        try:
+            Config(**provided_config)
+        except ValidationError as e:
+            logger.error("Config validation failed: %s", e)
             self._stored.status["config"] = to_tuple(
                 BlockedStatus("Config file is invalid; see debug-log")
             )
@@ -183,7 +178,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         # If we get to this point in the code, the config is guaranteed to at least
         # be valid YAML.
         SNAP_CONFIG_PATH.write_text(config)
-        logger.info(f"Overwrote the config for the snap at {SNAP_CONFIG_LOCATION}")
+        logger.info("Overwrote the config for the snap at {SNAP_CONFIG_LOCATION}")
         self._stored.status["config"] = to_tuple(
                     ActiveStatus()
                     )
@@ -198,7 +193,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             manager.register(snap_name, snap_revision)
             revisions = manager.get_revisions(snap_name)
             if snap_revision >= (max(revisions) if revisions else 0):
-                logger.info(f"Installing snap {snap_name}")
+                logger.info("Installing snap {snap_name}")
 
                 self._stored.status["snap"] = to_tuple(
                     MaintenanceStatus(f"Installing snap {snap_name}")
@@ -209,19 +204,19 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                     MaintenanceStatus(f"Starting snap {snap_name}")
                     )
                 try:
-                    logger.info(f"Starting {snap_name} snap")
+                    logger.info("Starting {snap_name} snap")
                     self.snap(snap_name).start(enable=True)
                     self._stored.status["snap"] = to_tuple(ActiveStatus())
                 except snap.SnapError as e:
                     self._stored.status["snap"] = to_tuple(
                         BlockedStatus("Unable to install the snap; see debug-log")
                         )
-                    logger.warn(f"Failed to start snap {snap_name}")
+                    logger.warning("Failed to start snap {snap_name}")
                     raise SnapServiceError(f"Failed to start {snap_name}") from e
 
     def _restart_snap(self, snap_name: str) -> None:
         try:
-            logger.info(f"Restarting snap {snap_name}")
+            logger.info("Restarting snap {snap_name}")
             self.snap(snap_name).restart()
         except snap.SnapError as e:
             logger.warning(f"Failed to restart prometheus-blackbox-exporter snap: {e}")
@@ -251,10 +246,10 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         )
         try:
             self.snap(snap_name).ensure(state=snap.SnapState.Absent)
-            logger.info(f"{snap_name} snap was uninstalled")
-        except (snap.SnapError, SnapSpecError) as e:
+            logger.info("{snap_name} snap was uninstalled")
+        except (snap.SnapError, SnapSpecError):
             # Log error but don't fail the remove hook - this is common in test environments
-            logger.error(f"Failed to uninstall {snap_name} snap: {e}")
+            logger.error("Failed to uninstall {snap_name} snap: {e}")
             # Don't raise the exception to avoid failing the remove hook
 
     def _update_peer_relation_data(self):
