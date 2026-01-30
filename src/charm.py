@@ -350,7 +350,6 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         """Validate and return a list of custom jobs."""
         try:
             probes_yaml = yaml.safe_load(probes_file)
-            logger.info(type(probes_file))
         except Exception as e:
             logger.warning(
                 "An error has occurred while validating the probes file using YAML %s", e
@@ -371,10 +370,8 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             'source': juju_context("principal_unit"),
             'source_hostname': PRINCIPAL_HOSTNAME,
             }
-        logger.info(type(probes_file))
         custom_jobs = probes_yaml["scrape_configs"]
         for job in custom_jobs:
-            logger.info(type(job))
             # Prepend the principal hostname to job_name
             job["job_name"] = f"{PRINCIPAL_HOSTNAME}-{job['job_name']}"
 

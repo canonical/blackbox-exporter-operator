@@ -110,8 +110,8 @@ config:
         The charm will prepend its principal's hostname to the job name. For example, the job name `check-charmhub-connectivity`
         will become `<hostname>-check-charmhub-connectivity`. You can provide custom labels under the `labels` section.
         However, the charm will automatically set the following labels:
-        1. source: equal to the name of the principal unit.
-        2. source_hostname: equal to the hostname of the machine hosting the unit.
+          1. source: equal to the name of the principal unit.
+          2. source_hostname: equal to the hostname of the machine hosting the unit.
 
         Upon changing the config, the provided scrape jobs will be validated. If they are invalid, the charm
         will be set to Blocked along with a dedicated message and the provided jobs will NOT be forwarded over 

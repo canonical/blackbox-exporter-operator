@@ -20,6 +20,11 @@ def mock_config_path(placeholder_cfg_path):
         yield
 
 @pytest.fixture(autouse=True)
+def mock_hostname():
+    with patch("socket.gethostname", return_value="hostname"):
+        yield
+
+@pytest.fixture(autouse=True)
 def mock_is_snap_active():
     with patch("charm.is_snap_active", return_value=True) as mock:
         yield mock
