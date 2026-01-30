@@ -20,12 +20,12 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
 
 from constants import (
     COS_AGENT_RELATION_NAME,
+    DEFAULT_CONFIG_FILE,
     DEFAULT_PORT,
     LOG_SLOT_NAME,
     PEERS_RELATION_NAME,
     SNAP_CONFIG_PATH,
     SNAP_NAME,
-    DEFAULT_CONFIG_FILE,
 )
 from singleton_snap import SingletonSnapManager
 from snap_management import (
