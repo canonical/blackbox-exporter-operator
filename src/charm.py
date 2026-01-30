@@ -17,7 +17,6 @@ from cosl.reconciler import all_events, observe_events
 from ops import CollectStatusEvent, StoredState
 from ops.jujucontext import JujuContext
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
-from pydantic import ValidationError
 
 from constants import (
     COS_AGENT_RELATION_NAME,
@@ -26,6 +25,7 @@ from constants import (
     PEERS_RELATION_NAME,
     SNAP_CONFIG_PATH,
     SNAP_NAME,
+    DEFAULT_CONFIG_FILE,
 )
 from singleton_snap import SingletonSnapManager
 from snap_management import (
@@ -146,9 +146,9 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         if file_contents(SNAP_CONFIG_PATH) == config:
             return False
 
-        # If the config_file is empty, the default config provided by the snap will be used.
+        # If the config_file is empty, the default will be used.
         if not config:
-            return True
+            config = DEFAULT_CONFIG_FILE
 
         # We do a basic config validation of the yaml content
         try:
@@ -167,7 +167,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         # Now we validate the config with the Config BaseModel.
         try:
             Config(**provided_config)
-        except ValidationError as e:
+        except Exception as e:
             logger.error("Config validation failed: %s", e)
             self._stored.status["config"] = to_tuple(
                 BlockedStatus("Config file is invalid; see debug-log")
