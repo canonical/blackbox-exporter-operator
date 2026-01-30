@@ -1,30 +1,32 @@
 import pytest
+import yaml
 from pydantic import ValidationError
+
 from src.models import ProbesFile
 
-
-VALID_PROBES = {
-    "scrape_configs": [
-        {
-            "job_name": "check-charmhub-connectivity",
-            "metrics_path": "/probe",
-            "params": {"module": ["http_2xx"]},
-            "modules": ["http_2xx"],
-            "static_configs": [
-                {"targets": ["https://charmhub.io", "https://ububtu.com"]}
-            ],
-        }
-    ]
-}
+VALID_PROBES_YAML = """
+scrape_configs:
+  - job_name: check-charmhub-connectivity
+    metrics_path: /probe
+    params:
+      module:
+        - http_2xx
+    modules:
+      - http_2xx
+    static_configs:
+      - targets:
+          - https://charmhub.io
+          - https://ububtu.com
+"""
 
 
 def test_valid_probes_file_passes():
-    probes = ProbesFile(**VALID_PROBES)
+    probes = ProbesFile(**yaml.safe_load(VALID_PROBES_YAML))
     assert probes.scrape_configs[0].job_name == "check-charmhub-connectivity"
 
 
 def test_empty_job_name_fails():
-    data = VALID_PROBES.copy()
+    data = yaml.safe_load(VALID_PROBES_YAML).copy()
     data["scrape_configs"][0]["job_name"] = ""
 
     with pytest.raises(ValidationError) as exc:
@@ -34,7 +36,7 @@ def test_empty_job_name_fails():
 
 
 def test_wrong_metrics_path_fails():
-    data = VALID_PROBES.copy()
+    data = yaml.safe_load(VALID_PROBES_YAML).copy()
     data["scrape_configs"][0]["metrics_path"] = "/metrics"
 
     with pytest.raises(ValidationError) as exc:
@@ -44,7 +46,7 @@ def test_wrong_metrics_path_fails():
 
 
 def test_missing_targets_fails():
-    data = VALID_PROBES.copy()
+    data = yaml.safe_load(VALID_PROBES_YAML).copy()
     data["scrape_configs"][0]["static_configs"] = [{"targets": []}]
 
     with pytest.raises(ValidationError):

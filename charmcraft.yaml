@@ -92,7 +92,8 @@ config:
         Refer to https://github.com/prometheus/blackbox_exporter#prometheus-configuration for full
         details.
         The scrape jobs defined via this option are added to the self monitoring and, if enabled, automatic
-        cross-unit ICMP connectivity checks and forwarded over relation data to Opentelemetry Collector.
+        cross-unit ICMP connectivity checks. They are then forwarded over relation data to Opentelemetry Collector.
+        Scrape config should follow the upstream format: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config.
         An example file would be:
 
         scrape_configs:
@@ -102,8 +103,8 @@ config:
             module: [http_2xx]
           static_configs:
             - targets:
-                - https://charmhub.io
-                - https://ubuntu.com    
+                - charmhub.io
+                - ubuntu.com    
 
         Ensure your file starts with `scrape_configs`. Separate jobs using different job names.
         The charm will prepend its principal's hostname to the job name. For example, the job name `check-charmhub-connectivity`
@@ -115,4 +116,7 @@ config:
         Upon changing the config, the provided scrape jobs will be validated. If they are invalid, the charm
         will be set to Blocked along with a dedicated message and the provided jobs will NOT be forwarded over 
         relation data to Opentelemetry Collector.
+
+        When specifying targets, do NOT include the scheme. That means `charmhub.io` is a valid target, but
+        `https://charmhub.io` is not.
 

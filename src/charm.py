@@ -17,6 +17,7 @@ from cosl.reconciler import all_events, observe_events
 from ops import CollectStatusEvent, Relation, StoredState
 from ops.jujucontext import JujuContext
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
+from pydantic import ValidationError
 
 from constants import (
     COS_AGENT_RELATION_NAME,
@@ -348,16 +349,19 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
     def _custom_scrape_jobs(self, probes_file: str) -> List[Dict[str, Any]]:
         """Validate and return a list of custom jobs."""
         try:
-            probes_file = yaml.safe_load(probes_file)
+            probes_yaml = yaml.safe_load(probes_file)
+            logger.info(type(probes_file))
         except Exception as e:
-            logger.warning("An error has occurred while validating the probes file %s", e)
+            logger.warning(
+                "An error has occurred while validating the probes file using YAML %s", e
+                )
             self._stored.status["probes_file"] = to_tuple(
-                BlockedStatus("Probes file contains invalid YAML; see debug-log")
+                BlockedStatus("Error when validating probes file; see debug-log")
                 )
             return []
         try:
-            ProbesFile(**probes_file)
-        except Exception as e:
+            ProbesFile(**probes_yaml)
+        except ValidationError as e:
             logger.warning("An error has occurred while validating the probes file %s", e)
             self._stored.status["probes_file"] = to_tuple(
                 BlockedStatus("Invalid probes file; see debug-log")
@@ -367,9 +371,10 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             'source': juju_context("principal_unit"),
             'source_hostname': PRINCIPAL_HOSTNAME,
             }
-
-        custom_jobs = probes_file["scrape_configs"]
+        logger.info(type(probes_file))
+        custom_jobs = probes_yaml["scrape_configs"]
         for job in custom_jobs:
+            logger.info(type(job))
             # Prepend the principal hostname to job_name
             job["job_name"] = f"{PRINCIPAL_HOSTNAME}-{job['job_name']}"
 

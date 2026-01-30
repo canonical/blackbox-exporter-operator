@@ -7,9 +7,10 @@
 import json
 import logging
 import socket
+
 import yaml
-from scenario import PeerRelation, State, SubordinateRelation
 from ops import testing
+from scenario import PeerRelation, State, SubordinateRelation
 
 PRINCIPAL_HOSTNAME = socket.gethostname()
 
@@ -248,7 +249,7 @@ def test_valid_probes_file_forwarded(context):
         # AND the name of the third job must have the PRINCIPAL_HOSTNAME prepended to it.
         assert scrape_jobs_json[2].get(
             "job_name", ""
-            ) == f"{PRINCIPAL_HOSTNAME}-check-charmhub-connectivity" 
+            ) == f"{PRINCIPAL_HOSTNAME}-check-charmhub-connectivity"
         # AND the source_hostname label must be equal to PRINCIPAL_HOSTNAME
         hostname_label = (
             scrape_jobs_json[2]
@@ -265,7 +266,7 @@ def test_valid_probes_file_forwarded(context):
 
 def test_invalid_probes_file_not_forwarded(context):
     """Test that the cos-agent endpoint does not forward invalid probes file content."""
-    # GIVEN a BE charm which has EXACTLY ONE peer and an **invalid** probes_file set via juju config.
+    # GIVEN a BE charm which has EXACTLY ONE peer and an **invalid** probes_file set.
     cos_agent_relation = SubordinateRelation(endpoint="cos-agent")
     peer_relation = PeerRelation(endpoint="peers", peers_data={1: PEER_ONE_REL_DATA})
     state = State(
