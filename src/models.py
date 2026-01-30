@@ -21,7 +21,6 @@ class ScrapeJob(BaseModel):
     metrics_path: str
     params: Dict[str, List[str]]  # e.g., {"module": ["http_2xx"]}
     static_configs: List[StaticConfig] = Field(..., min_items=1) # type: ignore
-    modules: List[str] = Field(..., min_items=1) # type: ignore
 
     @field_validator("job_name")
     @classmethod

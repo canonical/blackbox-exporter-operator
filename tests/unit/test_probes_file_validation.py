@@ -15,8 +15,8 @@ scrape_configs:
       - http_2xx
     static_configs:
       - targets:
-          - https://charmhub.io
-          - https://ububtu.com
+          - charmhub.io
+          - ububtu.com
 """
 
 
