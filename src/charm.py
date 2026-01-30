@@ -143,7 +143,10 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         config = cast(str, self.model.config.get("config_file"))
 
         # If config hasn't changed, return False as no overwriting will happen.
-        if file_contents(SNAP_CONFIG_PATH) == config:
+        # Or if the juju config option is None and we are already using the default,
+        #return False
+        current_config = file_contents(SNAP_CONFIG_PATH)
+        if current_config == config or (current_config == DEFAULT_CONFIG_FILE and not config):
             return False
 
         # If the config_file is empty, the default will be used.
@@ -178,7 +181,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         # If we get to this point in the code, the config is guaranteed to at least
         # be valid YAML.
         SNAP_CONFIG_PATH.write_text(config)
-        logger.info("Overwrote config for the Blackbox Exporter snap at {SNAP_CONFIG_LOCATION}")
+        logger.info(f"Overwrote config for the Blackbox Exporter snap at {SNAP_CONFIG_PATH}")
         self._stored.status["config"] = to_tuple(
                     ActiveStatus()
                     )
@@ -202,15 +205,15 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                 self.unit.status = MaintenanceStatus(f"Starting snap {snap_name}")
 
                 try:
-                    logger.info("Starting {snap_name} snap")
+                    logger.info(f"Starting {snap_name} snap")
                     self.snap(snap_name).start(enable=True)
                     self._stored.status["snap"] = to_tuple(ActiveStatus())
                 except snap.SnapError:
-                    logger.warning("Failed to start snap {snap_name}")
+                    logger.warning(f"Failed to start snap {snap_name}")
 
     def _restart_snap(self, snap_name: str) -> None:
         try:
-            logger.info("Restarting snap {snap_name}")
+            logger.info(f"Restarting snap {snap_name}")
             self.snap(snap_name).restart()
         except snap.SnapError as e:
             logger.warning(f"Failed to restart prometheus-blackbox-exporter snap: {e}")
@@ -237,7 +240,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         self.unit.status = MaintenanceStatus(f"Uninstalling {snap_name} snap")
         try:
             self.snap(snap_name).ensure(state=snap.SnapState.Absent)
-            logger.info("{snap_name} snap was uninstalled")
+            logger.info(f"{snap_name} snap was uninstalled")
         except (snap.SnapError, SnapSpecError):
             # Log error but don't fail the remove hook - this is common in test environments
             logger.error("Failed to uninstall {snap_name} snap: {e}")
