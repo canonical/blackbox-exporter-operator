@@ -27,7 +27,7 @@ from constants import (
     SNAP_CONFIG_PATH,
     SNAP_NAME,
 )
-from models import Config
+from models import Config, ProbesFile
 from singleton_snap import SingletonSnapManager
 from snap_management import (
     SnapMap,
@@ -62,6 +62,9 @@ class CompositeStatus(TypedDict):
     # For the validation of config.
     config: tuple[str, str]
 
+    # For the validation of the probes file.
+    probes_file: tuple[str, str]
+
 
 def to_tuple(status: StatusBase) -> tuple[str, str]:
     """Convert a StatusBase to tuple, so it is marshallable into StoredState."""
@@ -84,7 +87,8 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         self._stored.set_default(
             status=CompositeStatus(
                 snap=to_tuple(ActiveStatus()),
-                config=to_tuple(ActiveStatus())
+                config=to_tuple(ActiveStatus()),
+                probes_file=to_tuple(ActiveStatus()),
             )
         )
 
@@ -292,16 +296,16 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             for network in unit_networks:
                 scrape_job["static_configs"].append({
                     'targets': [network["ip"]],
-                        'labels': {
-                            'interface': network['iface'],
-                            'source': juju_context("principal_unit"),
-                            'source_hostname': PRINCIPAL_HOSTNAME,
-                            'destination': rel_data['principal-unit'],
-                            'destination_hostname': rel_data['principal-hostname'],
-                            'source_az': juju_context("availability_zone"),
-                            'destination_az': rel_data['az'],
-                            'probe': 'icmp'
-                        }
+                    'labels': {
+                        'interface': network['iface'],
+                        'source': juju_context("principal_unit"),
+                        'source_hostname': PRINCIPAL_HOSTNAME,
+                        'destination': rel_data['principal-unit'],
+                        'destination_hostname': rel_data['principal-hostname'],
+                        'source_az': juju_context("availability_zone"),
+                        'destination_az': rel_data['az'],
+                        'probe': 'icmp'
+                    }
                 }
                 )
 
@@ -341,6 +345,44 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
 
         return job
 
+    def _custom_scrape_jobs(self, probes_file: str) -> List[Dict[str, Any]]:
+        """Validate and return a list of custom jobs."""
+        try:
+            probes_file = yaml.safe_load(probes_file)
+        except Exception as e:
+            logger.warning("An error has occurred while validating the probes file %s", e)
+            self._stored.status["probes_file"] = to_tuple(
+                BlockedStatus("Probes file contains invalid YAML; see debug-log")
+                )
+            return []
+        try:
+            ProbesFile(**probes_file)
+        except Exception as e:
+            logger.warning("An error has occurred while validating the probes file %s", e)
+            self._stored.status["probes_file"] = to_tuple(
+                BlockedStatus("Invalid probes file; see debug-log")
+            )
+            return []
+        extra_labels = {
+            'source': juju_context("principal_unit"),
+            'source_hostname': PRINCIPAL_HOSTNAME,
+            }
+
+        custom_jobs = probes_file["scrape_configs"]
+        for job in custom_jobs:
+            # Prepend the principal hostname to job_name
+            job["job_name"] = f"{PRINCIPAL_HOSTNAME}-{job['job_name']}"
+
+            # Add the source (principal_unit) and source hostname labels.
+            # This will overwrite the value for these keys if they are provided.
+            for static_config in job.get("static_configs", []):
+                if "labels" not in static_config:
+                    static_config["labels"] = {}
+                static_config["labels"].update(extra_labels)
+        logger.info("Custom scraped jobs have been validated and sanitized.")
+        self._stored.status["probes_file"] = to_tuple(ActiveStatus())
+        return custom_jobs
+
     @property
     def _all_scrape_jobs(self) -> List[Dict[str, Any]]:
         """Generate all scrape jobs defined by charm, to be scraped by a scraper.
@@ -371,6 +413,13 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             all_scrape_jobs.append(
                 self._connectivity_scrape_jobs(peer_relation)
                 )
+
+        probes_file = cast(str, self.model.config.get("probes_file"))
+        if probes_file:
+            # all_scrape_jobs returns a list of jobs so we extend.
+            all_scrape_jobs.extend(
+                self._custom_scrape_jobs(probes_file)
+            )
 
         return all_scrape_jobs
 
