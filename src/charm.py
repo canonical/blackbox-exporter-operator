@@ -2,7 +2,7 @@
 # Copyright 2026 Ltd.
 # See LICENSE file for licensing details.
 
-"""Charm the Blackbox Exporter."""
+"""A charmed operator for Blackbox Exporter."""
 
 import json
 import logging
@@ -27,14 +27,14 @@ from constants import (
     SNAP_CONFIG_PATH,
     SNAP_NAME,
 )
+from models import Config
 from singleton_snap import SingletonSnapManager
 from snap_management import (
     SnapMap,
-    SnapServiceError,
     SnapSpecError,
     install_snap,
 )
-from utils import Config, file_contents, get_unit_networks, is_snap_active
+from utils import file_contents, get_unit_networks, is_snap_active
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         # If we get to this point in the code, the config is guaranteed to at least
         # be valid YAML.
         SNAP_CONFIG_PATH.write_text(config)
-        logger.info("Overwrote the config for the snap at {SNAP_CONFIG_LOCATION}")
+        logger.info("Overwrote config for the Blackbox Exporter snap at {SNAP_CONFIG_LOCATION}")
         self._stored.status["config"] = to_tuple(
                     ActiveStatus()
                     )
@@ -195,24 +195,18 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             if snap_revision >= (max(revisions) if revisions else 0):
                 logger.info("Installing snap {snap_name}")
 
-                self._stored.status["snap"] = to_tuple(
-                    MaintenanceStatus(f"Installing snap {snap_name}")
-                    )
+                self.unit.status = MaintenanceStatus(f"Installing snap {snap_name}")
+
                 install_snap(snap_name)
 
-                self._stored.status["snap"] = to_tuple(
-                    MaintenanceStatus(f"Starting snap {snap_name}")
-                    )
+                self.unit.status = MaintenanceStatus(f"Starting snap {snap_name}")
+
                 try:
                     logger.info("Starting {snap_name} snap")
                     self.snap(snap_name).start(enable=True)
                     self._stored.status["snap"] = to_tuple(ActiveStatus())
-                except snap.SnapError as e:
-                    self._stored.status["snap"] = to_tuple(
-                        BlockedStatus("Unable to install the snap; see debug-log")
-                        )
+                except snap.SnapError:
                     logger.warning("Failed to start snap {snap_name}")
-                    raise SnapServiceError(f"Failed to start {snap_name}") from e
 
     def _restart_snap(self, snap_name: str) -> None:
         try:
@@ -223,9 +217,8 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
 
     def _remove_blackbox_exporter(self):
         """Coordinate blackbox-exporter snap and config file removal."""
-        self._stored.status["snap"] = to_tuple(
-            MaintenanceStatus("Removing Blackbox Exporter")
-        )
+        self.unit.status = MaintenanceStatus("Removing Blackbox Exporter")
+
         manager = SingletonSnapManager(self.unit.name)
         snap_revision = SnapMap.get_revision(SNAP_NAME)
         manager.unregister(SNAP_NAME, snap_revision)
@@ -241,9 +234,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
 
     def _remove_snap(self, snap_name: str):
         """Attempt to remove the snap."""
-        self._stored.status["snap"] = to_tuple(
-            MaintenanceStatus(f"Uninstalling {snap_name} snap")
-        )
+        self.unit.status = MaintenanceStatus(f"Uninstalling {snap_name} snap")
         try:
             self.snap(snap_name).ensure(state=snap.SnapState.Absent)
             logger.info("{snap_name} snap was uninstalled")

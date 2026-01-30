@@ -7,16 +7,11 @@ import subprocess
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
 from pathlib import Path
-from typing import Any, Dict, cast
+from typing import cast
 
 from netifaces import AF_INET, InterfaceType, ifaddresses, interfaces
-from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
-
-class Config(BaseModel):
-    """BaseModel for a config file."""
-    modules: Dict[str, Any]
 
 @dataclass(frozen=True)
 class Network:
@@ -98,10 +93,10 @@ def is_snap_active(snap_name: str) -> bool:
             if snap_name in line:
                 if "active" in line.split():
                     return True
-        logger.info("Snap {snap_name} is not active")
+        logger.warning("Snap {snap_name} is not active. Ensure provided config is valid.")
         return False
-    except subprocess.CalledProcessError:
-        logger.info("Unable to determine the activeness status of snap {snap_name}")
+    except subprocess.CalledProcessError as e:
+        logger.info("Unable to determine the activeness status of snap {snap_name}: %s", e)
         return False
 
 def file_contents(path: Path) -> str | None:
