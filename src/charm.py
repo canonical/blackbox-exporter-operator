@@ -254,7 +254,8 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             # Don't raise the exception to avoid failing the remove hook
 
     def _update_peer_relation_data(self):
-        if not self.model.get_relation(PEERS_RELATION_NAME):
+        relation = self.model.get_relation(PEERS_RELATION_NAME)
+        if not relation:
             return
         peer_relation_data = {
             "principal-unit": juju_context("principal_unit") or "",
@@ -262,8 +263,6 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             "unit-networks": json.dumps([n.to_dict() for n in get_unit_networks()]),
             "az": juju_context("availability_zone") or "",
         }
-        relation = self.model.get_relation(PEERS_RELATION_NAME)
-        assert relation is not None
 
         relation.data[self.unit].update(peer_relation_data)
 
@@ -381,6 +380,11 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                 if "labels" not in static_config:
                     static_config["labels"] = {}
                 static_config["labels"].update(extra_labels)
+                job['relabel_configs'] = [
+                        {'source_labels': ['__address__'], 'target_label': '__param_target'},
+                        {'source_labels': ['__param_target'], 'target_label': 'instance'},
+                        {'target_label': '__address__', 'replacement': self._machine_ip+':9115'}
+                    ]
         logger.info("Custom scraped jobs have been validated and sanitized.")
         self._stored.status["probes_file"] = to_tuple(ActiveStatus())
         return custom_jobs
