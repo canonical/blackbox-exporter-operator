@@ -112,6 +112,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                 self.on.config_changed,
                 self.on.update_status,
             ],
+            dashboard_dirs=["./src/grafana_dashboards"]
         )
 
         self.framework.observe(self.on.collect_unit_status, self._collect_unit_status)
