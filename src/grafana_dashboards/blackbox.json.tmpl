@@ -616,6 +616,18 @@
           "hide": false,
           "range": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prometheusds}"
+          },
+          "editorMode": "code",
+          "expr": "probe_success{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\"} == 0",
+          "format": "table",
+          "hide": false,
+          "range": true,
+          "refId": "C"
         }
       ],
       "title": "Detailed Information",
@@ -625,10 +637,11 @@
           "options": {
             "include": {
               "names": [
-                "Value #A",
-                "Value #B",
-                "instance"
-              ]
+                  "Value #A",
+                  "Value #B",
+                  "Value #C",
+                  "instance"
+                ]
             }
           }
         },
@@ -646,11 +659,13 @@
             "indexByName": {
               "Value #A": 1,
               "Value #B": 2,
+              "Value #C": 3,
               "instance": 0
             },
             "renameByName": {
               "Value #A": "Response Time",
               "Value #B": "DNS Query Time",
+              "Value #C": "Failing",
               "instance": " Instance Address"
             }
           }
@@ -911,7 +926,7 @@
         "type": "datasource"
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": false,
           "text": "All",
@@ -942,7 +957,7 @@
         "useTags": false
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": true,
           "text": [
@@ -978,7 +993,7 @@
         "useTags": false
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": true,
           "text": [
@@ -1013,7 +1028,7 @@
         "useTags": false
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": false,
           "text": "All",
