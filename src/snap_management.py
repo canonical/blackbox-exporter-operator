@@ -39,7 +39,6 @@ class SnapMap:
     desired confinement mode.
     """
 
-    # TODO: bump the snap to the latest upstream which 0.28.0 and update the mapping here.
     snap_maps = {
         "prometheus-blackbox-exporter": {
             # (confinement, arch): revision

@@ -6,7 +6,7 @@
 
 type: charm
 subordinate: true
-name: blackbox-exporter-operator
+name: blackbox-exporter
 title: Blackbox Exporter Machine Charm
 summary: Performs ICMP connectivity checks of its peers by default and supports blackbox probing with a variety of protocols.
 description: |
@@ -24,8 +24,12 @@ links:
 platforms:
   ubuntu@22.04:amd64:
   ubuntu@22.04:arm64:
+  ubuntu@22.04:ppc64el:
+  ubuntu@22.04:s390x:
   ubuntu@24.04:amd64:
   ubuntu@24.04:arm64:
+  ubuntu@24.04:ppc64el:
+  ubuntu@24.04:s390x:
 
 parts:
   charm:
@@ -55,4 +59,68 @@ provides:
 peers:
   peers:
     interface: blackbox_exporter_replica
+
+config:
+  options:
+    config_file:
+      description: |
+        Supply a configuration file for Blackbox Exporter in which modules and their parameters are specified.
+        The provided config file must be a valid YAML and contain a `modules` section.
+        If this value is unset, the default below will be used.
+
+        modules:
+          http_2xx:
+            prober: http
+            timeout: 10s
+          tcp_connect:
+            prober: tcp
+            timeout: 10s
+          icmp:
+            prober: icmp
+            timeout: 10s
+            icmp:
+              preferred_ip_protocol: "ip4"
+              ip_protocol_fallback: true
+  
+        Automatic connectivity checks require the ICMP module. 
+        If you need automatic cross-unit connectivity checks, do NOT remove the ICMP module. 
+        If your ICMP checks require DNS resolution for a target e.g. charmhub.io,
+        ensure the parameter `ip_protocol_fallback` is set to `true`.
+        Refer to https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md for
+        more information.
+      type: string
+    probes_file:
+      type: string
+      description: >
+        Scrape config for Opentelemetry Collector in YAML format.
+        Refer to https://github.com/prometheus/blackbox_exporter#prometheus-configuration for full
+        details.
+        The scrape jobs defined via this option are added to the self monitoring and, if enabled, automatic
+        cross-unit ICMP connectivity checks. They are then forwarded over relation data to Opentelemetry Collector.
+        Scrape config should follow the upstream format: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config.
+        An example file would be:
+
+        scrape_configs:
+        - job_name: check-charmhub-connectivity
+          metrics_path: /probe
+          params:
+            module: [http_2xx]
+          static_configs:
+            - targets:
+                - charmhub.io
+                - ubuntu.com    
+
+        Ensure your file starts with `scrape_configs`. Separate jobs using different job names.
+        The charm will prepend its principal's hostname to the job name. For example, the job name `check-charmhub-connectivity`
+        will become `<hostname>-check-charmhub-connectivity`. You can provide custom labels under the `labels` section.
+        However, the charm will automatically set the following labels:
+          1. source: equal to the name of the principal unit.
+          2. source_hostname: equal to the hostname of the machine hosting the unit.
+
+        Upon changing the config, the provided scrape jobs will be validated. If they are invalid, the charm
+        will be set to Blocked along with a dedicated message and the provided jobs will NOT be forwarded over 
+        relation data to Opentelemetry Collector.
+
+        When specifying targets, do NOT include the scheme. That means `charmhub.io` is a valid target, but
+        `https://charmhub.io` is not.
 

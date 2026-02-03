@@ -2,12 +2,16 @@
 
 This utils module will hold ops-independent logic to be used by charm code.
 """
+import logging
+import subprocess
 from dataclasses import dataclass
 from ipaddress import IPv4Interface, IPv4Network
+from pathlib import Path
 from typing import cast
 
 from netifaces import AF_INET, InterfaceType, ifaddresses, interfaces
 
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class Network:
@@ -70,3 +74,33 @@ def get_unit_networks() -> list[Network]:
             )
 
     return networks
+
+def is_snap_active(snap_name: str) -> bool:
+    """Return True if the snap is installed and in the 'active' state."""
+    try:
+        # snap services returns the status of the service
+        result = subprocess.run(
+            ["snap", "services", snap_name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # Output example:
+        # Service                 Startup  Current  Notes
+        # prometheus-blackbox-exporter.enable  enabled  active   -
+        # We check for 'active' in the Current column
+        for line in result.stdout.splitlines():
+            if snap_name in line:
+                if "active" in line.split():
+                    return True
+        logger.warning("Snap {snap_name} is not active. Ensure provided config is valid.")
+        return False
+    except subprocess.CalledProcessError as e:
+        logger.info("Unable to determine the activeness status of snap {snap_name}: %s", e)
+        return False
+
+def file_contents(path: Path) -> str | None:
+    """Return the content of a file at path `path`."""
+    if not path.exists():
+        return None
+    return path.read_text()
