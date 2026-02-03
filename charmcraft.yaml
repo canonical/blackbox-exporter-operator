@@ -15,9 +15,9 @@ description: |
   This charm operates the Blackbox Exporter snap on machines such as LXD.
 
 links:
-  # TODO: update these two lines when we register on Charmhub
+  # TODO: update this line when a discourse discussion page is created for this charm.
   #documentation: https://discourse.charmhub.io/t/blackbox-exporter-k8s-docs-index/11728
-  #website: https://charmhub.io/blackbox-exporter-k8s
+  website: https://charmhub.io/blackbox-exporter
   source: https://github.com/canonical/blackbox-exporter-operator
   issues: https://github.com/canonical/blackbox-exporter-operator/issues
 
