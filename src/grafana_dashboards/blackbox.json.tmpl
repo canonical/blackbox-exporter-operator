@@ -149,7 +149,7 @@
       },
       "id": 18,
       "panels": [],
-      "title": "HTTP Monitoring Information",
+      "title": "High-Level Monitoring Information",
       "type": "row"
     },
     {
@@ -573,8 +573,8 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 20,
-        "x": 4,
+        "w": 12,
+        "x": 12,
         "y": 9
       },
       "id": 8,
@@ -616,18 +616,6 @@
           "hide": false,
           "range": true,
           "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${prometheusds}"
-          },
-          "editorMode": "code",
-          "expr": "probe_success{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\"} == 0",
-          "format": "table",
-          "hide": false,
-          "range": true,
-          "refId": "C"
         }
       ],
       "title": "Detailed Information",
@@ -639,7 +627,6 @@
               "names": [
                   "Value #A",
                   "Value #B",
-                  "Value #C",
                   "instance"
                 ]
             }
@@ -659,13 +646,11 @@
             "indexByName": {
               "Value #A": 1,
               "Value #B": 2,
-              "Value #C": 3,
               "instance": 0
             },
             "renameByName": {
               "Value #A": "Response Time",
               "Value #B": "DNS Query Time",
-              "Value #C": "Failing",
               "instance": " Instance Address"
             }
           }
@@ -773,7 +758,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
+        "w": 12,
         "x": 0,
         "y": 12
       },
@@ -836,6 +821,112 @@
       "title": "Instance status percentage",
       "type": "piechart"
     },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${prometheusds}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Target"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 400
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 29,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "9.5.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prometheusds}"
+          },
+          "editorMode": "code",
+          "expr": "probe_success{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\"} == 0",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Failing Targets",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "instance",
+                "destination_hostname"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "instance": "Instance",
+              "destination_hostname": "Destination Hostname"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
 
 
 
@@ -845,7 +936,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 28
       },
       "id": 26,
       "panels": [],
@@ -861,7 +952,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 29
       },
       "id": 28,
       "options": {
