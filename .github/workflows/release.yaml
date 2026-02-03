@@ -17,5 +17,4 @@ jobs:
       CHARMHUB_TOKEN: ${{ secrets.CHARMHUB_TOKEN }}
     with:
       provider: machine
-      default-track: dev
       pack-using-remote-build: true
