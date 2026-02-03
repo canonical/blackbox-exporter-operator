@@ -149,7 +149,7 @@
       },
       "id": 18,
       "panels": [],
-      "title": "ICMP Monitoring Information",
+      "title": "High-Level Monitoring Information",
       "type": "row"
     },
     {
@@ -573,8 +573,8 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 20,
-        "x": 4,
+        "w": 12,
+        "x": 12,
         "y": 9
       },
       "id": 8,
@@ -599,9 +599,9 @@
             "uid": "${prometheusds}"
           },
           "editorMode": "code",
-          "expr": "probe_http_status_code{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\",probe_target=~\"$probe_target\"}",
+          "expr": "sum by(instance,destination_hostname) (probe_duration_seconds{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\"})",
           "format": "table",
-          "legendFormat": "",
+          "hide": false,
           "range": true,
           "refId": "A"
         },
@@ -611,47 +611,11 @@
             "uid": "${prometheusds}"
           },
           "editorMode": "code",
-          "expr": "probe_ssl_earliest_cert_expiry{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\",probe_target=~\"$probe_target\"} - time()",
+          "expr": "probe_dns_lookup_time_seconds{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\"}",
           "format": "table",
           "hide": false,
           "range": true,
           "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${prometheusds}"
-          },
-          "editorMode": "code",
-          "expr": "probe_ssl_earliest_cert_expiry{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\",probe_target=~\"$probe_target\"} * 1000",
-          "format": "table",
-          "hide": false,
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${prometheusds}"
-          },
-          "editorMode": "code",
-          "expr": "sum by(probe_target) (probe_duration_seconds{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\",probe_target=~\"$probe_target\"})",
-          "format": "table",
-          "hide": false,
-          "range": true,
-          "refId": "D"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${prometheusds}"
-          },
-          "editorMode": "code",
-          "expr": "probe_dns_lookup_time_seconds{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\",probe_target=~\"$probe_target\"}",
-          "format": "table",
-          "hide": false,
-          "range": true,
-          "refId": "E"
         }
       ],
       "title": "Detailed Information",
@@ -661,20 +625,17 @@
           "options": {
             "include": {
               "names": [
-                "Value #A",
-                "Value #B",
-                "Value #C",
-                "Value #D",
-                "Value #E",
-                "probe_target"
-              ]
+                  "Value #A",
+                  "Value #B",
+                  "instance"
+                ]
             }
           }
         },
         {
           "id": "seriesToColumns",
           "options": {
-            "byField": "probe_target",
+            "byField": "instance",
             "mode": "outer"
           }
         },
@@ -683,21 +644,14 @@
           "options": {
             "excludeByName": {},
             "indexByName": {
-              "Value #A": 3,
-              "Value #B": 4,
-              "Value #C": 5,
-              "Value #D": 1,
-              "Value #E": 2,
-              "probe_target": 0
+              "Value #A": 1,
+              "Value #B": 2,
+              "instance": 0
             },
             "renameByName": {
-              "Value #A": "HTTP Status Code",
-              "Value #B": "Certificate Validity",
-              "Value #C": "Certificate Expiration Time",
-              "Value #D": "Response Time",
-              "Value #E": "DNS Query Time",
-              "instance": "",
-              "probe_target": " Instance Address"
+              "Value #A": "Response Time",
+              "Value #B": "DNS Query Time",
+              "instance": " Instance Address"
             }
           }
         }
@@ -804,7 +758,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
+        "w": 12,
         "x": 0,
         "y": 12
       },
@@ -868,19 +822,6 @@
       "type": "piechart"
     },
     {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 20
-      },
-      "id": 14,
-      "panels": [],
-      "title": "SSL Probes: Instance whose certificate is about to expire",
-      "type": "row"
-    },
-    {
       "datasource": {
         "type": "prometheus",
         "uid": "${prometheusds}"
@@ -895,7 +836,6 @@
             "cellOptions": {
               "type": "auto"
             },
-            "filterable": false,
             "inspect": false
           },
           "mappings": [],
@@ -903,12 +843,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
-              },
-              {
                 "color": "red",
-                "value": 80
+                "value": null
               }
             ]
           }
@@ -917,58 +853,12 @@
           {
             "matcher": {
               "id": "byName",
-              "options": " Instance Address"
+              "options": "Target"
             },
             "properties": [
-              {
-                "id": "custom.width"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Certificate Validity"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
               {
                 "id": "custom.width",
-                "value": 160
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "basic",
-                  "type": "color-background"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "semi-dark-red",
-                      "value": null
-                    },
-                    {
-                      "color": "red",
-                      "value": 1296000
-                    },
-                    {
-                      "color": "semi-dark-orange",
-                      "value": 1296010
-                    },
-                    {
-                      "color": "semi-dark-green",
-                      "value": 2592000
-                    }
-                  ]
-                }
+                "value": 400
               }
             ]
           }
@@ -978,9 +868,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 20
       },
-      "id": 20,
+      "id": 29,
       "options": {
         "cellHeight": "sm",
         "footer": {
@@ -1002,24 +892,23 @@
             "uid": "${prometheusds}"
           },
           "editorMode": "code",
-          "exemplar": true,
-          "expr": "probe_ssl_earliest_cert_expiry{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\",probe_target=~\"$probe_target\"} - time() < (3600 * 24 * 30)",
+          "expr": "probe_success{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\"} == 0",
           "format": "table",
+          "hide": false,
           "instant": true,
-          "interval": "",
-          "legendFormat": "",
+          "range": false,
           "refId": "A"
         }
       ],
-      "title": "Expired in less than 30 days",
+      "title": "Failing Targets",
       "transformations": [
         {
           "id": "filterFieldsByName",
           "options": {
             "include": {
               "names": [
-                "Value",
-                "probe_target"
+                "instance",
+                "destination_hostname"
               ]
             }
           }
@@ -1028,128 +917,26 @@
           "id": "organize",
           "options": {
             "excludeByName": {},
-            "indexByName": {
-              "Value": 1,
-              "probe_target": 0
-            },
+            "indexByName": {},
             "renameByName": {
-              "Value": "Certificate Validity",
-              "instance": " Instance Address",
-              "probe_target": "Target"
+              "instance": "Instance",
+              "destination_hostname": "Destination Hostname"
             }
           }
         }
       ],
       "type": "table"
     },
+
+
+
     {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
-      },
-      "id": 12,
-      "panels": [],
-      "title": "Response code change record",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${prometheusds}"
-      },
-      "fill": 0,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 30
-      },
-      "hiddenSeries": false,
-      "id": 24,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "9.5.3",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${prometheusds}"
-          },
-          "editorMode": "code",
-          "expr": "probe_http_status_code{juju_application=~\"$juju_application\",juju_model=~\"$juju_model\",juju_model_uuid=~\"$juju_model_uuid\",juju_unit=~\"$juju_unit\",probe_target=~\"$probe_target\"}",
-          "legendFormat": "{{probe_target}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeRegions": [],
-      "title": "Response code change record",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "mode": "time",
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:52",
-          "format": "short",
-          "logBase": 1,
-          "show": true
-        },
-        {
-          "$$hashKey": "object:53",
-          "format": "short",
-          "logBase": 1,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 40
+        "y": 28
       },
       "id": 26,
       "panels": [],
@@ -1165,7 +952,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 29
       },
       "id": 28,
       "options": {
@@ -1186,12 +973,12 @@
             "uid": "${lokids}"
           },
           "editorMode": "builder",
-          "expr": "{pebble_service=\"blackbox\", juju_application=~\"$juju_application\", juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_unit=~\"$juju_unit\"} |= ``",
+          "expr": "{juju_application=\"$juju_application\", juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_unit=~\"$juju_unit\"}",
           "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "Panel Title",
+      "title": "Logs",
       "type": "logs"
     }
   ],
@@ -1230,7 +1017,7 @@
         "type": "datasource"
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": false,
           "text": "All",
@@ -1261,7 +1048,7 @@
         "useTags": false
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": true,
           "text": [
@@ -1297,7 +1084,7 @@
         "useTags": false
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": true,
           "text": [
@@ -1332,7 +1119,7 @@
         "useTags": false
       },
       {
-        "allValue": ".*",
+        "allValue": ".+",
         "current": {
           "selected": false,
           "text": "All",
