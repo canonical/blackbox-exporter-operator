@@ -310,11 +310,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                 }
                 )
 
-        scrape_job['relabel_configs'] = [
-                {'source_labels': ['__address__'], 'target_label': '__param_target'},
-                {'source_labels': ['__param_target'], 'target_label': 'instance'},
-                {'target_label': '__address__', 'replacement': self._machine_ip+':9115'}
-            ]
+        scrape_job['relabel_configs'] = self._relabel_configs
 
         return scrape_job
 
@@ -381,11 +377,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                 if "labels" not in static_config:
                     static_config["labels"] = {}
                 static_config["labels"].update(extra_labels)
-                job['relabel_configs'] = [
-                        {'source_labels': ['__address__'], 'target_label': '__param_target'},
-                        {'source_labels': ['__param_target'], 'target_label': 'instance'},
-                        {'target_label': '__address__', 'replacement': self._machine_ip+':9115'}
-                    ]
+                job['relabel_configs'] = self._relabel_configs
         logger.info("Custom scraped jobs have been validated and sanitized.")
         self._stored.status["probes_file"] = to_tuple(ActiveStatus())
         return custom_jobs
@@ -440,6 +432,14 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         assert binding is not None
         return str(binding.network.bind_address)
 
+    @property
+    def _relabel_configs(self) -> List[Dict]:
+        """Return the relabel configs necessary for scrape jobs."""
+        return [
+                {'source_labels': ['__address__'], 'target_label': '__param_target'},
+                {'source_labels': ['__param_target'], 'target_label': 'instance'},
+                {'target_label': '__address__', 'replacement': self._machine_ip+':9115'}
+            ]
 
 if __name__ == "__main__":  # pragma: nocover
     ops.main(BlackboxExporterOperatorCharm)
