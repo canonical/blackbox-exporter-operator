@@ -32,7 +32,7 @@ modules:
 ```
 
 # What does a sample deployment look like?
-The exercise below walks you through what a typical set up for this charm looks like. Ensure you have Juju installed and bootstrap a LXD cloud. The goal of the exercise is to see how Blackbox Exporter can perform automatic cross-unit connectivity checks, accept custom probe scrape jobs, integrate with the rest of the COS/COS Lite solution, provide dashboars, etc.
+The exercise below walks you through what a typical set up for this charm looks like. Ensure you have installed Juju and bootstrap a LXD cloud. The goal of the exercise is to see how Blackbox Exporter can perform automatic cross-unit connectivity checks, accept custom probe scrape jobs, integrate with the rest of the COS/COS Lite solution, provide dashboards, etc.
 To start, deploy the following bundle.
 
 ```yaml
@@ -115,7 +115,7 @@ Now, relate Opentelemetry Collector to Grafana.
 ```bash
 juju integrate otel grafana
 ```
-For dashboards to display all necessary data, ensure both Prometheus or Loki are datasources for Grafana. For this purpose, do
+For dashboards to display all necessary data, ensure both Prometheus and Loki are datasources for Grafana. For this purpose, do
 ```bash
 juju integrate loki grafana:grafana-source
 juju integrate prometheus grafana:grafana-source
