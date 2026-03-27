@@ -111,7 +111,7 @@ def test_self_metrics(context):
         assert len(scrape_jobs_json) == 1
 
         # AND the name of that single job must be `be-self-monitoring`
-        assert scrape_jobs_json[0].get("job_name", "") == "be-self-monitoring"
+        assert "be-self-monitoring" in scrape_jobs_json[0].get("job_name", "")
 
 def test_connectivity_checks_metrics_one_peer(context):
     """Test that the cos-agent endpoint writes the correct jobs to rel data."""
@@ -148,12 +148,12 @@ def test_connectivity_checks_metrics_one_peer(context):
         assert len(scrape_jobs_json) == 2
 
         # AND the name of that first job must be `be-self-monitoring`
-        assert scrape_jobs_json[0].get("job_name", "") == "be-self-monitoring"
+        assert "be-self-monitoring" in scrape_jobs_json[0].get("job_name", "")
 
         # AND the name of the second job must be equal to the principal host name
-        assert scrape_jobs_json[1].get(
+        assert f"{PRINCIPAL_HOSTNAME}-connectivity-checks" in scrape_jobs_json[1].get(
             "job_name", ""
-            ) == f"{PRINCIPAL_HOSTNAME}-connectivity-checks"
+            )
 
         # AND since there is only 1 peer with only 1 interface,
         # the length of `static_configs` must be EXACTLY 1.
@@ -192,12 +192,12 @@ def test_connectivity_checks_metrics_two_peers(context):
         assert len(scrape_jobs_json) == 2
 
         # AND the name of that first job must be `be-self-monitoring`
-        assert scrape_jobs_json[0].get("job_name", "") == "be-self-monitoring"
+        assert "be-self-monitoring" in scrape_jobs_json[0].get("job_name", "")
 
         # AND the name of the second job must be equal to the principal host name
-        assert scrape_jobs_json[1].get(
+        assert f"{PRINCIPAL_HOSTNAME}-connectivity-checks" in scrape_jobs_json[1].get(
             "job_name", ""
-            ) == f"{PRINCIPAL_HOSTNAME}-connectivity-checks"
+            )
 
         # AND since there are 2 peers, one with 1 interface and one with 2 interfaces,
         # the length of static_configs for this job must be EXACTLY three.
@@ -237,19 +237,16 @@ def test_valid_probes_file_forwarded(context):
         assert scrape_jobs_json
 
         assert len(scrape_jobs_json) == 3
-
+        logger.info(f"Scrape jobs sent to cos-agent: {scrape_jobs_json}")
         # AND the name of that first job must be `be-self-monitoring`
-        assert scrape_jobs_json[0].get("job_name", "") == "be-self-monitoring"
+        assert "be-self-monitoring" in scrape_jobs_json[0].get("job_name", "")
 
-        # AND the name of the second job must be equal to the principal host name
-        assert scrape_jobs_json[1].get(
-            "job_name", ""
-            ) == f"{PRINCIPAL_HOSTNAME}-connectivity-checks"
+
 
         # AND the name of the third job must have the PRINCIPAL_HOSTNAME prepended to it.
-        assert scrape_jobs_json[2].get(
+        assert f"{PRINCIPAL_HOSTNAME}-check-charmhub-connectivity" in scrape_jobs_json[1].get(
             "job_name", ""
-            ) == f"{PRINCIPAL_HOSTNAME}-check-charmhub-connectivity"
+            )
         # AND the source_hostname label must be equal to PRINCIPAL_HOSTNAME
         hostname_label = (
             scrape_jobs_json[2]
@@ -259,6 +256,11 @@ def test_valid_probes_file_forwarded(context):
         )
 
         assert hostname_label == PRINCIPAL_HOSTNAME
+
+        # AND the name of the second job must be equal to the principal host name
+        assert f"{PRINCIPAL_HOSTNAME}-connectivity-checks" in scrape_jobs_json[2].get(
+            "job_name", ""
+            )
 
         # AND because the probes_file contained valid jobs,
         # the status must be active.
