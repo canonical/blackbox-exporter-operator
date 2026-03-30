@@ -49,6 +49,7 @@ def test_scale_down_on_the_machine(juju: jubilant.Juju):
     # On machine 0, we have two Ubuntu principals and hence, two BEs.
     # If we remove 1 of the 2 principals, the BE subordinate related to it will also be removed.
     juju.remove_unit("ubuntu/1")
+    juju.wait(jubilant.all_active)
     juju.wait(jubilant.all_agents_idle)
 
     # Now that one of the 2 units of BE on machine 0 is removed,
@@ -65,6 +66,7 @@ def test_scale_down_on_the_machine(juju: jubilant.Juju):
 
     # We'll remove the remaining unit and ensure that the snap is also removed from the machine.
     juju.remove_application(APP_NAME)
+    juju.wait(jubilant.all_active)
     juju.wait(jubilant.all_agents_idle)
 
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(10), reraise=True)
