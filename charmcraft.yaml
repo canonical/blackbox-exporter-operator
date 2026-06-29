@@ -10,13 +10,27 @@ name: blackbox-exporter
 title: Blackbox Exporter Machine Charm
 summary: Performs ICMP connectivity checks of its peers by default and supports blackbox probing with a variety of protocols.
 description: |
-  Blackbox exporter is a Prometheus exporter that can execute blackbox
-  probes for a variety of protocols, including HTTP(s), DNS, TCP and ICMP.
-  This charm operates the Blackbox Exporter snap on machines such as LXD.
+  Blackbox Exporter is a Juju subordinate charm that deploys and manages the Prometheus
+  [Blackbox Exporter] snap on machines such as LXD, enabling blackbox probing of endpoints
+  over HTTP(S), DNS, TCP, and ICMP.
+  It is a complementary charm to the Canonical Observability Stack (COS), allowing
+  operators to monitor the reachability and responsiveness of external services:
+  https://documentation.ubuntu.com/observability
+
+  Probe configurations are provided via Juju config or through the probes relation, and are
+  automatically registered as Prometheus scrape jobs.
+
+  Key features:
+
+  - Blackbox probing over multiple protocols: HTTP(S), DNS, TCP, and ICMP.
+  - Automatic probe registration as Prometheus scrape jobs via Juju relations.
+  - Built-in Grafana dashboards and Prometheus alert rules for self-monitoring.
+  - Seamless integration with Prometheus, Grafana, and Loki through Juju relations.
+
+  [Blackbox Exporter]: https://github.com/prometheus/blackbox_exporter
 
 links:
   documentation: https://documentation.ubuntu.com/observability/latest/
-  website: https://charmhub.io/blackbox-exporter
   source: https://github.com/canonical/blackbox-exporter-operator
   issues: https://github.com/canonical/blackbox-exporter-operator/issues
 
@@ -85,9 +99,9 @@ config:
             icmp:
               preferred_ip_protocol: "ip4"
               ip_protocol_fallback: true
-  
-        Automatic connectivity checks require the ICMP module. 
-        If you need automatic cross-unit connectivity checks, do NOT remove the ICMP module. 
+
+        Automatic connectivity checks require the ICMP module.
+        If you need automatic cross-unit connectivity checks, do NOT remove the ICMP module.
         If your ICMP checks require DNS resolution for a target e.g. charmhub.io,
         ensure the parameter `ip_protocol_fallback` is set to `true`.
         Refer to https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md for
@@ -112,7 +126,7 @@ config:
           static_configs:
             - targets:
                 - charmhub.io
-                - ubuntu.com    
+                - ubuntu.com
 
         Ensure your file starts with `scrape_configs`. Separate jobs using different job names.
         The charm will prepend its principal's hostname to the job name. For example, the job name `check-charmhub-connectivity`
@@ -122,9 +136,8 @@ config:
           2. source_hostname: equal to the hostname of the machine hosting the unit.
 
         Upon changing the config, the provided scrape jobs will be validated. If they are invalid, the charm
-        will be set to Blocked along with a dedicated message and the provided jobs will NOT be forwarded over 
+        will be set to Blocked along with a dedicated message and the provided jobs will NOT be forwarded over
         relation data to Opentelemetry Collector.
 
         When specifying targets, do NOT include the scheme. That means `charmhub.io` is a valid target, but
         `https://charmhub.io` is not.
-
