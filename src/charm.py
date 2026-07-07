@@ -396,7 +396,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                     Currently, such a config option is not provided.
                     When it is, automatic connectivity checks are enabled by default.
         3. Any scrape jobs provided by the user via the `probes_file`
-          config option. To be implemented.
+          config option. These jobs will be validated and sanitized by self._custom_scrape_jobs.
         """
         all_scrape_jobs = []
 
