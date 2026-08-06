@@ -15,7 +15,7 @@ dependencies = [
     "netifaces2",
 ]
 
-[project.dependency-groups]
+[project.optional-dependencies]
 dev = [
   # Linting
   "ruff",
