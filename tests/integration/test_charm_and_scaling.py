@@ -17,8 +17,8 @@ APP_NAME = "blackbox-exporter-operator"
 
 def test_deploy(charm: pathlib.Path, juju: jubilant.Juju):
     """Deploy the charm under test."""
-    juju.deploy(charm.resolve(), app=APP_NAME)
-    juju.deploy("ubuntu")
+    juju.deploy(charm.resolve(), app=APP_NAME, base="ubuntu@26.04")
+    juju.deploy("ubuntu", base="ubuntu@26.04")
     juju.integrate(APP_NAME, "ubuntu")
     juju.wait(jubilant.all_active)
 
