@@ -249,7 +249,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         try:
             self.snap(snap_name).ensure(state=snap.SnapState.Absent)
             logger.info(f"{snap_name} snap was uninstalled")
-        except (snap.SnapError, SnapSpecError):
+        except (snap.SnapError, SnapSpecError) as e:
             # Log error but don't fail the remove hook - this is common in test environments
             logger.error(f"Failed to uninstall {snap_name} snap: {e}")
             # Don't raise the exception to avoid failing the remove hook
