@@ -204,7 +204,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             manager.register(snap_name, snap_revision)
             revisions = manager.get_revisions(snap_name)
             if snap_revision >= (max(revisions) if revisions else 0):
-                logger.info("Installing snap {snap_name}")
+                logger.info(f"Installing snap {snap_name}")
 
                 self.unit.status = MaintenanceStatus(f"Installing snap {snap_name}")
 
@@ -251,7 +251,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             logger.info(f"{snap_name} snap was uninstalled")
         except (snap.SnapError, SnapSpecError):
             # Log error but don't fail the remove hook - this is common in test environments
-            logger.error("Failed to uninstall {snap_name} snap: {e}")
+            logger.error(f"Failed to uninstall {snap_name} snap: {e}")
             # Don't raise the exception to avoid failing the remove hook
 
     def _update_peer_relation_data(self):
