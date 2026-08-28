@@ -58,6 +58,10 @@ parts:
     source: .
     build-snaps:
       - astral-uv
+    build-environment:
+      - UV_PYTHON: "3.10"
+      - UV_PYTHON_DOWNLOADS: "auto"
+      - UV_PYTHON_PREFERENCE: "system"
   icon:
     plugin: dump
     source: .
