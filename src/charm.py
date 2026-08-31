@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import socket
-from typing import Any, Dict, List, TypedDict, cast
+from typing import Any, Dict, FrozenSet, List, Type, TypedDict, cast
 
 import ops
 import yaml
@@ -41,6 +41,12 @@ from utils import file_contents, get_unit_networks, is_snap_active
 logger = logging.getLogger(__name__)
 
 PRINCIPAL_HOSTNAME = socket.gethostname()
+
+NON_RECONCILABLE_EVENTS: FrozenSet[Type[ops.EventBase]] = frozenset(
+    {
+        ops.RemoveEvent,
+    }
+)
 
 class CompositeStatus(TypedDict):
     """Per-component status holder."""
@@ -104,7 +110,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         self.framework.observe(
             self.on[PEERS_RELATION_NAME].relation_joined, self._on_peers_relation_joined
         )
-        observe_events(self, all_events, self._reconcile)
+        observe_events(self, all_events.difference(NON_RECONCILABLE_EVENTS), self._reconcile)
 
     def _collect_unit_status(self, event: CollectStatusEvent):
         # Push status
