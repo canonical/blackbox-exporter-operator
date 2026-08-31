@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import socket
 from typing import Any, Dict, List, TypedDict, cast
 
@@ -86,9 +85,6 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         self.framework.observe(self.on.upgrade_charm, self._on_install)
         self.framework.observe(self.on.remove, self._on_remove)
 
-        if os.environ.get("JUJU_DISPATCH_PATH") == "hooks/remove":
-            return
-
         self.cos_agent_provider = COSAgentProvider(
             self,
             relation_name=COS_AGENT_RELATION_NAME,
@@ -131,6 +127,17 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
 
     def _on_peers_relation_joined(self, _: ops.RelationJoinedEvent) -> None:
         self._update_peer_relation_data()
+
+    @property
+    def _principal_unit_name(self) -> str:
+        """Return the name of the principal unit this subordinate is attached to."""
+        relation = self.model.get_relation("juju-info")
+        if not relation:
+            return ""
+        principals = relation.units
+        if not principals:
+            return ""
+        return next(iter(principals)).name
 
     def snap(self, snap_name: str) -> snap.Snap:
         """Return the snap object for the given snap.
@@ -257,10 +264,9 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         if not relation:
             return
         peer_relation_data = {
-            "principal-unit": os.environ.get("JUJU_REMOTE_UNIT") or "",
+            "principal-unit": self._principal_unit_name,
             "principal-hostname": PRINCIPAL_HOSTNAME,
             "unit-networks": json.dumps([n.to_dict() for n in get_unit_networks()]),
-            "az": os.environ.get("JUJU_AVAILABILITY_ZONE") or "",
         }
 
         relation.data[self.unit].update(peer_relation_data)
@@ -297,12 +303,10 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                     'targets': [network["ip"]],
                     'labels': {
                         'interface': network['iface'],
-                        'source': os.environ.get("JUJU_REMOTE_UNIT") or "",
+                        'source': self._principal_unit_name,
                         'source_hostname': PRINCIPAL_HOSTNAME,
                         'destination': rel_data['principal-unit'],
                         'destination_hostname': rel_data['principal-hostname'],
-                        'source_az': os.environ.get("JUJU_AVAILABILITY_ZONE") or "",
-                        'destination_az': rel_data['az'],
                         'probe': 'icmp'
                     }
                 }
@@ -361,7 +365,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             )
             return []
         extra_labels = {
-            'source': os.environ.get("JUJU_REMOTE_UNIT") or "",
+            'source': self._principal_unit_name,
             'source_hostname': PRINCIPAL_HOSTNAME,
             }
         custom_jobs = probes_yaml["scrape_configs"]
