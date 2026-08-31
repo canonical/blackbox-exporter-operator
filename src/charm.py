@@ -43,16 +43,6 @@ logger = logging.getLogger(__name__)
 
 PRINCIPAL_HOSTNAME = socket.gethostname()
 
-def event() -> str:
-    """Return Juju hook|action name.
-
-    Refs:
-    - https://github.com/juju/juju/blob/cbb05654c7444dd6bee29e49aff16339f02c34f9/docs/reference/action.md?plain=1#L55
-    - https://github.com/juju/juju/blob/cbb05654c7444dd6bee29e49aff16339f02c34f9/docs/reference/hook.md?plain=1#L1088
-    """
-    dispatch_path = os.environ.get("JUJU_DISPATCH_PATH", "")
-    return dispatch_path.split("/")[-1]
-
 class CompositeStatus(TypedDict):
     """Per-component status holder."""
 
@@ -92,11 +82,11 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             )
         )
 
-        if event() in ("install", "upgrade"):
-            self._install_snaps()
+        self.framework.observe(self.on.install, self._on_install)
+        self.framework.observe(self.on.upgrade_charm, self._on_install)
+        self.framework.observe(self.on.remove, self._on_remove)
 
-        elif event() == "remove":
-            self._remove_blackbox_exporter()
+        if os.environ.get("JUJU_DISPATCH_PATH") == "hooks/remove":
             return
 
         self.cos_agent_provider = COSAgentProvider(
@@ -115,6 +105,9 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         )
 
         self.framework.observe(self.on.collect_unit_status, self._collect_unit_status)
+        self.framework.observe(
+            self.on[PEERS_RELATION_NAME].relation_joined, self._on_peers_relation_joined
+        )
         observe_events(self, all_events, self._reconcile)
 
     def _collect_unit_status(self, event: CollectStatusEvent):
@@ -126,12 +119,18 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         if not is_snap_active(SNAP_NAME):
             event.add_status(BlockedStatus(f"Snap {SNAP_NAME} is inactive; see debug-log"))
 
+    def _on_install(self, _: ops.HookEvent) -> None:
+        self._install_snaps()
+
+    def _on_remove(self, _: ops.HookEvent) -> None:
+        self._remove_blackbox_exporter()
+
     def _reconcile(self):
         if self._push_config():
             self._restart_snap(SNAP_NAME)
 
-        if event() == "peers_relation_joined":
-            self._update_peer_relation_data()
+    def _on_peers_relation_joined(self, _: ops.RelationJoinedEvent) -> None:
+        self._update_peer_relation_data()
 
     def snap(self, snap_name: str) -> snap.Snap:
         """Return the snap object for the given snap.
