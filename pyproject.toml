@@ -72,3 +72,5 @@ skip = "build,lib,venv,icon.svg,.tox,.git,.mypy_cache,.ruff_cache,.coverage"
 
 [tool.pyright]
 include = ["src", "tests"]
+pythonVersion = "3.8"
+pythonPlatform = "All"

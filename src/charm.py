@@ -356,7 +356,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             probes_yaml = yaml.safe_load(probes_file)
         except Exception as e:
             logger.warning(
-                "An error has occurred while validating the probes file using YAML %s", e
+                "An error has occurred while validating the probes file using YAML: %s", e
                 )
             self._stored.status["probes_file"] = to_tuple(
                 BlockedStatus("Error when validating probes file; see debug-log")
