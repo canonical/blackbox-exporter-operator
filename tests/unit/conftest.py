@@ -2,12 +2,16 @@
 # See LICENSE file for licensing details.
 
 
+from ipaddress import IPv4Network
 from unittest.mock import patch
 
 import pytest
 from scenario import Context
 
 from charm import BlackboxExporterOperatorCharm
+from utils import Network
+
+MOCK_NETWORKS = [Network(iface="eth0", ip="10.0.0.1", net=IPv4Network("10.0.0.1/32"))]
 
 
 @pytest.fixture
@@ -27,6 +31,11 @@ def mock_hostname():
 @pytest.fixture(autouse=True)
 def mock_is_snap_active():
     with patch("charm.is_snap_active", return_value=True) as mock:
+        yield mock
+
+@pytest.fixture(autouse=True)
+def mock_get_unit_networks():
+    with patch("charm.get_unit_networks", return_value=MOCK_NETWORKS) as mock:
         yield mock
 
 @pytest.fixture

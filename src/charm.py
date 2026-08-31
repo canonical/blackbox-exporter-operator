@@ -4,8 +4,11 @@
 
 """A charmed operator for Blackbox Exporter."""
 
+from __future__ import annotations
+
 import json
 import logging
+import os
 import socket
 from typing import Any, Dict, List, TypedDict, cast
 
@@ -15,7 +18,6 @@ from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from charms.operator_libs_linux.v2 import snap
 from cosl.reconciler import all_events, observe_events
 from ops import CollectStatusEvent, Relation, StoredState
-from ops.jujucontext import JujuContext
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
 from pydantic import ValidationError
 
@@ -41,10 +43,6 @@ logger = logging.getLogger(__name__)
 
 PRINCIPAL_HOSTNAME = socket.gethostname()
 
-def juju_context(arg: str):
-    """Return Juju env variables."""
-    return getattr(JujuContext.from_environ(), arg)
-
 def event() -> str:
     """Return Juju hook|action name.
 
@@ -52,7 +50,8 @@ def event() -> str:
     - https://github.com/juju/juju/blob/cbb05654c7444dd6bee29e49aff16339f02c34f9/docs/reference/action.md?plain=1#L55
     - https://github.com/juju/juju/blob/cbb05654c7444dd6bee29e49aff16339f02c34f9/docs/reference/hook.md?plain=1#L1088
     """
-    return juju_context("hook_name")
+    dispatch_path = os.environ.get("JUJU_DISPATCH_PATH", "")
+    return dispatch_path.split("/")[-1]
 
 class CompositeStatus(TypedDict):
     """Per-component status holder."""
@@ -131,7 +130,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         if self._push_config():
             self._restart_snap(SNAP_NAME)
 
-        if event() == "peers-relation-joined":
+        if event() == "peers_relation_joined":
             self._update_peer_relation_data()
 
     def snap(self, snap_name: str) -> snap.Snap:
@@ -259,10 +258,10 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         if not relation:
             return
         peer_relation_data = {
-            "principal-unit": juju_context("principal_unit") or "",
+            "principal-unit": os.environ.get("JUJU_REMOTE_UNIT") or "",
             "principal-hostname": PRINCIPAL_HOSTNAME,
             "unit-networks": json.dumps([n.to_dict() for n in get_unit_networks()]),
-            "az": juju_context("availability_zone") or "",
+            "az": os.environ.get("JUJU_AVAILABILITY_ZONE") or "",
         }
 
         relation.data[self.unit].update(peer_relation_data)
@@ -299,11 +298,11 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                     'targets': [network["ip"]],
                     'labels': {
                         'interface': network['iface'],
-                        'source': juju_context("principal_unit"),
+                        'source': os.environ.get("JUJU_REMOTE_UNIT") or "",
                         'source_hostname': PRINCIPAL_HOSTNAME,
                         'destination': rel_data['principal-unit'],
                         'destination_hostname': rel_data['principal-hostname'],
-                        'source_az': juju_context("availability_zone"),
+                        'source_az': os.environ.get("JUJU_AVAILABILITY_ZONE") or "",
                         'destination_az': rel_data['az'],
                         'probe': 'icmp'
                     }
@@ -363,7 +362,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             )
             return []
         extra_labels = {
-            'source': juju_context("principal_unit"),
+            'source': os.environ.get("JUJU_REMOTE_UNIT") or "",
             'source_hostname': PRINCIPAL_HOSTNAME,
             }
         custom_jobs = probes_yaml["scrape_configs"]

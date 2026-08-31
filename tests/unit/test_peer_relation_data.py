@@ -19,15 +19,13 @@ def test_peer_relation_data(context):
     peer_relation = PeerRelation(endpoint="peers", peers_data={1: {}})
     state = State(relations={peer_relation})
     # WHEN any event executes the reconciler.
-    with (
-        context(context.on.relation_joined(peer_relation), state=state) as mgr,
-    ):
+    with context(context.on.relation_joined(peer_relation), state=state) as mgr:
         state_out = mgr.run()
 
         peer_relation = next((obj for obj in state_out.relations if obj.endpoint == "peers"), None)
 
         unit_networks_data = json.loads(
-            getattr(peer_relation, "local_unit_data", {}).get("unit-networks", [])
+            getattr(peer_relation, "local_unit_data", {}).get("unit-networks", "[]")
         )
 
         # THEN the unit's networks' data must be written to remote unit data.
