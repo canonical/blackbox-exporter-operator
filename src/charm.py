@@ -4,10 +4,12 @@
 
 """A charmed operator for Blackbox Exporter."""
 
+from __future__ import annotations
+
 import json
 import logging
 import socket
-from typing import Any, Dict, List, TypedDict, cast
+from typing import Any, Dict, FrozenSet, List, Type, TypedDict, cast
 
 import ops
 import yaml
@@ -15,7 +17,6 @@ from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from charms.operator_libs_linux.v2 import snap
 from cosl.reconciler import all_events, observe_events
 from ops import CollectStatusEvent, Relation, StoredState
-from ops.jujucontext import JujuContext
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, StatusBase
 from pydantic import ValidationError
 
@@ -41,18 +42,11 @@ logger = logging.getLogger(__name__)
 
 PRINCIPAL_HOSTNAME = socket.gethostname()
 
-def juju_context(arg: str):
-    """Return Juju env variables."""
-    return getattr(JujuContext.from_environ(), arg)
-
-def event() -> str:
-    """Return Juju hook|action name.
-
-    Refs:
-    - https://github.com/juju/juju/blob/cbb05654c7444dd6bee29e49aff16339f02c34f9/docs/reference/action.md?plain=1#L55
-    - https://github.com/juju/juju/blob/cbb05654c7444dd6bee29e49aff16339f02c34f9/docs/reference/hook.md?plain=1#L1088
-    """
-    return juju_context("hook_name")
+NON_RECONCILABLE_EVENTS: FrozenSet[Type[ops.EventBase]] = frozenset(
+    {
+        ops.RemoveEvent,
+    }
+)
 
 class CompositeStatus(TypedDict):
     """Per-component status holder."""
@@ -93,12 +87,9 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             )
         )
 
-        if event() in ("install", "upgrade"):
-            self._install_snaps()
-
-        elif event() == "remove":
-            self._remove_blackbox_exporter()
-            return
+        self.framework.observe(self.on.install, self._on_install)
+        self.framework.observe(self.on.upgrade_charm, self._on_install)
+        self.framework.observe(self.on.remove, self._on_remove)
 
         self.cos_agent_provider = COSAgentProvider(
             self,
@@ -116,7 +107,10 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         )
 
         self.framework.observe(self.on.collect_unit_status, self._collect_unit_status)
-        observe_events(self, all_events, self._reconcile)
+        self.framework.observe(
+            self.on[PEERS_RELATION_NAME].relation_joined, self._on_peers_relation_joined
+        )
+        observe_events(self, all_events.difference(NON_RECONCILABLE_EVENTS), self._reconcile)
 
     def _collect_unit_status(self, event: CollectStatusEvent):
         # Push status
@@ -127,12 +121,29 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         if not is_snap_active(SNAP_NAME):
             event.add_status(BlockedStatus(f"Snap {SNAP_NAME} is inactive; see debug-log"))
 
+    def _on_install(self, _: ops.HookEvent) -> None:
+        self._install_snaps()
+
+    def _on_remove(self, _: ops.HookEvent) -> None:
+        self._remove_blackbox_exporter()
+
     def _reconcile(self):
         if self._push_config():
             self._restart_snap(SNAP_NAME)
 
-        if event() == "peers-relation-joined":
-            self._update_peer_relation_data()
+    def _on_peers_relation_joined(self, _: ops.RelationJoinedEvent) -> None:
+        self._update_peer_relation_data()
+
+    @property
+    def _principal_unit_name(self) -> str:
+        """Return the name of the principal unit this subordinate is attached to."""
+        relation = self.model.get_relation("juju-info")
+        if not relation:
+            return ""
+        principals = relation.units
+        if not principals:
+            return ""
+        return next(iter(principals)).name
 
     def snap(self, snap_name: str) -> snap.Snap:
         """Return the snap object for the given snap.
@@ -259,10 +270,9 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
         if not relation:
             return
         peer_relation_data = {
-            "principal-unit": juju_context("principal_unit") or "",
+            "principal-unit": self._principal_unit_name,
             "principal-hostname": PRINCIPAL_HOSTNAME,
             "unit-networks": json.dumps([n.to_dict() for n in get_unit_networks()]),
-            "az": juju_context("availability_zone") or "",
         }
 
         relation.data[self.unit].update(peer_relation_data)
@@ -299,12 +309,10 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
                     'targets': [network["ip"]],
                     'labels': {
                         'interface': network['iface'],
-                        'source': juju_context("principal_unit"),
+                        'source': self._principal_unit_name,
                         'source_hostname': PRINCIPAL_HOSTNAME,
                         'destination': rel_data['principal-unit'],
                         'destination_hostname': rel_data['principal-hostname'],
-                        'source_az': juju_context("availability_zone"),
-                        'destination_az': rel_data['az'],
                         'probe': 'icmp'
                     }
                 }
@@ -348,7 +356,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             probes_yaml = yaml.safe_load(probes_file)
         except Exception as e:
             logger.warning(
-                "An error has occurred while validating the probes file using YAML %s", e
+                "An error has occurred while validating the probes file using YAML: %s", e
                 )
             self._stored.status["probes_file"] = to_tuple(
                 BlockedStatus("Error when validating probes file; see debug-log")
@@ -363,7 +371,7 @@ class BlackboxExporterOperatorCharm(ops.CharmBase):
             )
             return []
         extra_labels = {
-            'source': juju_context("principal_unit"),
+            'source': self._principal_unit_name,
             'source_hostname': PRINCIPAL_HOSTNAME,
             }
         custom_jobs = probes_yaml["scrape_configs"]

@@ -83,6 +83,11 @@ INVALID_PROBES_FILE = {
     ]
 }
 
+def _job_by_name(jobs, fragment):
+    """Return the first scrape job whose job_name contains fragment."""
+    return next((j for j in jobs if fragment in j.get("job_name", "")), None)
+
+
 def test_self_metrics(context):
     """Test that the cos-agent endpoint writes the self monitoring scrape jobs to rel data."""
     # GIVEN a BE charm which has no peers or probes_file set via juju config.
@@ -90,9 +95,7 @@ def test_self_metrics(context):
     state = State(relations={cos_agent_relation})
 
     # WHEN a cos-agent relation is joined.
-    with (
-        context(context.on.relation_joined(cos_agent_relation), state=state) as mgr,
-    ):
+    with context(context.on.relation_joined(cos_agent_relation), state=state) as mgr:
         state_out = mgr.run()
         cos_agent_relation = next(
             (obj for obj in state_out.relations if obj.endpoint == "cos-agent"), None
@@ -121,9 +124,7 @@ def test_connectivity_checks_metrics_one_peer(context):
     state = State(relations={cos_agent_relation, peer_relation})
 
     # WHEN a reconcile happens.
-    with (
-        context(context.on.update_status(), state=state) as mgr,
-    ):
+    with context(context.on.update_status(), state=state) as mgr:
         state_out = mgr.run()
         cos_agent_relation = next(
             (obj for obj in state_out.relations if obj.endpoint == "cos-agent"), None
@@ -147,17 +148,17 @@ def test_connectivity_checks_metrics_one_peer(context):
 
         assert len(scrape_jobs_json) == 2
 
-        # AND the name of that first job must be `be-self-monitoring`
-        assert "be-self-monitoring" in scrape_jobs_json[0].get("job_name", "")
+        # AND there must be a self-monitoring job
+        self_mon_job = _job_by_name(scrape_jobs_json, "be-self-monitoring")
+        assert self_mon_job
 
-        # AND the name of the second job must be equal to the principal host name
-        assert f"{PRINCIPAL_HOSTNAME}-connectivity-checks" in scrape_jobs_json[1].get(
-            "job_name", ""
-            )
+        # AND there must be a connectivity-checks job named after the principal host name
+        conn_job = _job_by_name(scrape_jobs_json, f"{PRINCIPAL_HOSTNAME}-connectivity-checks")
+        assert conn_job
 
         # AND since there is only 1 peer with only 1 interface,
         # the length of `static_configs` must be EXACTLY 1.
-        static_configs = scrape_jobs_json[1].get("static_configs", {})
+        static_configs = conn_job.get("static_configs", {})
         assert len(static_configs) == 1
 
 def test_connectivity_checks_metrics_two_peers(context):
@@ -170,9 +171,7 @@ def test_connectivity_checks_metrics_two_peers(context):
     state = State(relations={cos_agent_relation, peer_relation})
 
     # WHEN a reconcile happens.
-    with (
-        context(context.on.update_status(), state=state) as mgr,
-    ):
+    with context(context.on.update_status(), state=state) as mgr:
         state_out = mgr.run()
         cos_agent_relation = next(
             (obj for obj in state_out.relations if obj.endpoint == "cos-agent"), None
@@ -191,17 +190,17 @@ def test_connectivity_checks_metrics_two_peers(context):
 
         assert len(scrape_jobs_json) == 2
 
-        # AND the name of that first job must be `be-self-monitoring`
-        assert "be-self-monitoring" in scrape_jobs_json[0].get("job_name", "")
+        # AND there must be a self-monitoring job
+        self_mon_job = _job_by_name(scrape_jobs_json, "be-self-monitoring")
+        assert self_mon_job
 
-        # AND the name of the second job must be equal to the principal host name
-        assert f"{PRINCIPAL_HOSTNAME}-connectivity-checks" in scrape_jobs_json[1].get(
-            "job_name", ""
-            )
+        # AND there must be a connectivity-checks job named after the principal host name
+        conn_job = _job_by_name(scrape_jobs_json, f"{PRINCIPAL_HOSTNAME}-connectivity-checks")
+        assert conn_job
 
         # AND since there are 2 peers, one with 1 interface and one with 2 interfaces,
         # the length of static_configs for this job must be EXACTLY three.
-        static_configs = scrape_jobs_json[1].get("static_configs", {})
+        static_configs = conn_job.get("static_configs", {})
         assert len(static_configs) == 3
 
 def test_valid_probes_file_forwarded(context):
@@ -215,9 +214,7 @@ def test_valid_probes_file_forwarded(context):
         )
 
     # WHEN a reconcile happens.
-    with (
-        context(context.on.update_status(), state=state) as mgr,
-    ):
+    with context(context.on.update_status(), state=state) as mgr:
         state_out = mgr.run()
         cos_agent_relation = next(
             (obj for obj in state_out.relations if obj.endpoint == "cos-agent"), None
@@ -238,29 +235,28 @@ def test_valid_probes_file_forwarded(context):
 
         assert len(scrape_jobs_json) == 3
         logger.info(f"Scrape jobs sent to cos-agent: {scrape_jobs_json}")
-        # AND the name of that first job must be `be-self-monitoring`
-        assert "be-self-monitoring" in scrape_jobs_json[0].get("job_name", "")
 
+        # AND there must be a self-monitoring job
+        self_mon_job = _job_by_name(scrape_jobs_json, "be-self-monitoring")
+        assert self_mon_job
 
+        # AND the probes_file job must have the PRINCIPAL_HOSTNAME prepended to it.
+        probes_job_name = f"{PRINCIPAL_HOSTNAME}-check-charmhub-connectivity"
+        probes_job = _job_by_name(scrape_jobs_json, probes_job_name)
+        assert probes_job
 
-        # AND the name of the third job must have the PRINCIPAL_HOSTNAME prepended to it.
-        assert f"{PRINCIPAL_HOSTNAME}-check-charmhub-connectivity" in scrape_jobs_json[1].get(
-            "job_name", ""
-            )
         # AND the source_hostname label must be equal to PRINCIPAL_HOSTNAME
         hostname_label = (
-            scrape_jobs_json[2]
+            probes_job
             .get("static_configs", [{}])[0]
             .get("labels", {})
             .get("source_hostname", "")
         )
-
         assert hostname_label == PRINCIPAL_HOSTNAME
 
-        # AND the name of the second job must be equal to the principal host name
-        assert f"{PRINCIPAL_HOSTNAME}-connectivity-checks" in scrape_jobs_json[2].get(
-            "job_name", ""
-            )
+        # AND there must be a connectivity-checks job named after the principal host name
+        conn_job = _job_by_name(scrape_jobs_json, f"{PRINCIPAL_HOSTNAME}-connectivity-checks")
+        assert conn_job
 
         # AND because the probes_file contained valid jobs,
         # the status must be active.
@@ -277,9 +273,7 @@ def test_invalid_probes_file_not_forwarded(context):
         )
 
     # WHEN a reconcile happens.
-    with (
-        context(context.on.update_status(), state=state) as mgr,
-    ):
+    with context(context.on.update_status(), state=state) as mgr:
         state_out = mgr.run()
         cos_agent_relation = next(
             (obj for obj in state_out.relations if obj.endpoint == "cos-agent"), None

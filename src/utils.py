@@ -2,6 +2,8 @@
 
 This utils module will hold ops-independent logic to be used by charm code.
 """
+from __future__ import annotations
+
 import logging
 import subprocess
 from dataclasses import dataclass
